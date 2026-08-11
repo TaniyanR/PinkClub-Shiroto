@@ -1,0 +1,2 @@
+# PinkClub-Shiroto
+FANZAの素人動画に特化したアフィリエイトサイト用CMS
