@@ -19,11 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $client = dmm_client_from_settings();
         if ($action === 'test') {
-            $client->fetchFloorList();
-            $result = '接続テスト成功（API疎通OK）';
-        } elseif ($action === 'sync_floor') {
-            $count = dmm_sync_service()->syncFloors();
-            $result = "Floor同期完了: {$count}件";
+            $client->fetchItems(
+                (string)($settings['site'] ?? 'FANZA'),
+                (string)($settings['service'] ?? 'digital'),
+                (string)($settings['floor'] ?? 'videoc'),
+                ['hits' => 1, 'offset' => 1]
+            );
+            $result = '接続テスト成功（商品情報API疎通OK）';
         } else {
             $result = '設定を保存しました。';
         }
@@ -49,7 +51,6 @@ require __DIR__ . '/includes/header.php';
     <div class="admin-actions">
       <button name="action" value="save" type="submit">保存</button>
       <button class="button-secondary" name="action" value="test" type="submit">接続テスト</button>
-      <button class="button-secondary" name="action" value="sync_floor" type="submit">Floor同期</button>
     </div>
   </form>
 </section>

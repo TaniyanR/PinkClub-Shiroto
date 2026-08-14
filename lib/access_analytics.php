@@ -61,9 +61,9 @@ function analytics_visitor_hash(string $ua): string
     return hash_hmac('sha256', $ip, $salt);
 }
 
-function analytics_maybe_cleanup_old_logs(int $retentionDays = 730, int $batchSize = 2000): void
+function analytics_maybe_cleanup_old_logs(int $retentionDays = 730, int $batchSize = 2000, bool $forceCheck = false): void
 {
-    if (mt_rand(1, 20) !== 1) {
+    if (!$forceCheck && mt_rand(1, 20) !== 1) {
         return;
     }
 
@@ -173,8 +173,6 @@ function analytics_track_beacon(): void
     } catch (Throwable $e) {
         analytics_disable_for_request($e);
     }
-
-    analytics_maybe_cleanup_old_logs(730, 2000);
 }
 
 function analytics_log_out(string $targetUrl, string $refCode, string $path): void
@@ -240,51 +238,6 @@ function analytics_log_out(string $targetUrl, string $refCode, string $path): vo
     } catch (Throwable $e) {
         analytics_disable_for_request($e);
     }
-}
-
-function analytics_log_taxonomy_page_view(string $path): void
-{
-    return;
-}
-
-function analytics_log_actress_page_view(int $actressId): void
-{
-    $actressId = max(0, $actressId);
-    if ($actressId <= 0) {
-        return;
-    }
-
-    analytics_log_taxonomy_page_view('/actress.php?id=' . $actressId);
-}
-
-function analytics_log_genre_page_view(int $genreId): void
-{
-    $genreId = max(0, $genreId);
-    if ($genreId <= 0) {
-        return;
-    }
-
-    analytics_log_taxonomy_page_view('/genre.php?id=' . $genreId);
-}
-
-function analytics_log_maker_page_view(int $makerId): void
-{
-    $makerId = max(0, $makerId);
-    if ($makerId <= 0) {
-        return;
-    }
-
-    analytics_log_taxonomy_page_view('/maker.php?id=' . $makerId);
-}
-
-function analytics_log_series_page_view(int $seriesId): void
-{
-    $seriesId = max(0, $seriesId);
-    if ($seriesId <= 0) {
-        return;
-    }
-
-    analytics_log_taxonomy_page_view('/series_detail.php?id=' . $seriesId);
 }
 
 function analytics_ensure_tables(): bool

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 function csrf_cookie_name(): string
 {
-    return 'pinkclub_fanza_csrf';
+    return 'pinkclub_shiroto_csrf';
 }
 
 function csrf_cookie_secure(): bool

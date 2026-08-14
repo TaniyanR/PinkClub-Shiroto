@@ -14,7 +14,7 @@ function rate_limit_client_ip(): string
 
 function rate_limit_dir(): string
 {
-    $dir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'pinkclub_fanza_rate_limit';
+    $dir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'pinkclub_shiroto_rate_limit';
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }

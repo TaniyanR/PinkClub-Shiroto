@@ -13,7 +13,7 @@ if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
 $type = trim((string)($_POST['type'] ?? ''));
 $period = trim((string)($_POST['period'] ?? ''));
 if (
-    !in_array($type, ['items', 'actresses', 'genres', 'makers', 'labels', 'series'], true)
+    $type !== 'items'
     || !in_array($period, ['daily', 'weekly', 'monthly', 'yearly'], true)
 ) {
     http_response_code(204);

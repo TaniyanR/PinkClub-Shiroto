@@ -40,8 +40,6 @@ function settings_normalize_site(string $value): string
 function settings_get(): array
 {
     $defaults = app_config()['dmm'] ?? [];
-    $catalogTargets = settings_catalog_targets($defaults);
-    $primaryTarget = $catalogTargets[0];
 
     $envApiId = trim((string)(getenv('DMM_API_ID') ?: getenv('FANZA_API_ID') ?: ''));
     $envAffiliateId = trim((string)(getenv('DMM_AFFILIATE_ID') ?: getenv('FANZA_AFFILIATE_ID') ?: ''));
@@ -53,11 +51,12 @@ function settings_get(): array
     return [
         'api_id' => $dbApiId !== '' ? $dbApiId : ($envApiId !== '' ? $envApiId : ''),
         'affiliate_id' => $dbAffiliateId !== '' ? $dbAffiliateId : ($envAffiliateId !== '' ? $envAffiliateId : ''),
-        'site' => (string)$primaryTarget['site'],
-        'service' => (string)$primaryTarget['service'],
-        'floor' => (string)$primaryTarget['floor'],
-        'catalog_targets' => $catalogTargets,
-        'master_floor_id' => trim(site_setting_get('master_floor_id', (string)($defaults['master_floor_id'] ?? '43'))),
+        'site' => settings_normalize_site((string)site_setting_get('fanza_site', (string)($defaults['site'] ?? 'FANZA'))),
+        // This edition is intentionally restricted to FANZA amateur videos.
+        // Do not allow legacy database settings to redirect imports to another floor.
+        'service' => strtolower(settings_normalize_token((string)($defaults['service'] ?? 'digital'), 'digital')),
+        'floor' => strtolower(settings_normalize_token((string)($defaults['floor'] ?? 'videoc'), 'videoc')),
+        'master_floor_id' => trim(site_setting_get('master_floor_id', '43')),
         'item_sync_batch' => settings_allowed_item_sync_batch(settings_int('item_sync_batch', 100)),
         'item_sync_enabled' => settings_bool('item_sync_enabled', false),
         'item_sync_interval_minutes' => settings_int('item_sync_interval_minutes', 60),
@@ -65,50 +64,6 @@ function settings_get(): array
         'item_sync_offset' => settings_int('item_sync_offset', 1),
         'item_sync_test_offset' => settings_int('item_sync_test_offset', 1),
     ];
-}
-
-/** @return array<int,array{site:string,service:string,floor:string,label:string}> */
-function settings_catalog_targets(array $defaults): array
-{
-    $configured = $defaults['catalog_targets'] ?? [];
-    if (!is_array($configured) || $configured === []) {
-        $configured = [[
-            'site' => $defaults['site'] ?? 'FANZA',
-            'service' => $defaults['service'] ?? 'digital',
-            'floor' => $defaults['floor'] ?? 'videoa',
-            'label' => '商品',
-        ]];
-    }
-
-    $targets = [];
-    foreach ($configured as $target) {
-        if (!is_array($target)) {
-            continue;
-        }
-        $service = strtolower(settings_normalize_token((string)($target['service'] ?? ''), ''));
-        $floor = strtolower(settings_normalize_token((string)($target['floor'] ?? ''), ''));
-        if ($service === '' || $floor === '') {
-            continue;
-        }
-        $key = $service . ':' . $floor;
-        $targets[$key] = [
-            'site' => settings_normalize_site((string)($target['site'] ?? ($defaults['site'] ?? 'FANZA'))),
-            'service' => $service,
-            'floor' => $floor,
-            'label' => trim((string)($target['label'] ?? $floor)) ?: $floor,
-        ];
-    }
-
-    if ($targets === []) {
-        $targets['digital:videoa'] = ['site' => 'FANZA', 'service' => 'digital', 'floor' => 'videoa', 'label' => '商品'];
-    }
-
-    return array_values($targets);
-}
-
-function settings_catalog_target_key(array $target): string
-{
-    return strtolower((string)($target['service'] ?? 'digital')) . ':' . strtolower((string)($target['floor'] ?? 'videoa'));
 }
 
 function settings_int(string $key, int $default): int

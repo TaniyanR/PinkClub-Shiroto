@@ -157,7 +157,7 @@ function item_tag_links_from_text(string $tagText): array
         if ($tagName === '') {
             continue;
         }
-        $links[] = '<a rel="nofollow" href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $tagName])) . '">' . e($tagName) . '</a>';
+        $links[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $tagName])) . '">' . e($tagName) . '</a>';
     }
 
     return $links;
@@ -258,7 +258,7 @@ if ($contentId === '' && $cid !== '') {
 $item = false;
 try {
     if ($id > 0) {
-        $stmt = db()->prepare('SELECT * FROM items WHERE id = ? AND ' . items_product_source_where());
+        $stmt = db()->prepare('SELECT * FROM items WHERE id = ? AND ' . items_front_release_where());
         $stmt->execute([$id]);
         $item = $stmt->fetch();
         if (is_array($item)) {
@@ -279,12 +279,6 @@ try {
 
 if (!$item) {
     require __DIR__ . '/404.php';
-}
-
-$canonicalItemId = (int)($item['id'] ?? 0);
-if ($canonicalItemId > 0 && ($id !== $canonicalItemId || $contentId !== '' || $cid !== '')) {
-    header('Location: ' . public_url('item.php') . '?id=' . rawurlencode((string)$canonicalItemId), true, 301);
-    exit;
 }
 
 $relatedItems = [];
@@ -512,49 +506,43 @@ $performerText = implode('、', array_values(array_filter(array_map(static fn($v
 $genreText = implode('、', array_values(array_filter(array_map(static fn($v) => trim((string)($v['name'] ?? '')), $genres), static fn($v) => $v !== '')));
 $performerLinks = [];
 foreach ($actresses as $actressRow) {
-    $actressId = (int)($actressRow['id'] ?? 0);
     $actressName = trim((string)($actressRow['name'] ?? ''));
-    if ($actressId <= 0 || $actressName === '') {
+    if ($actressName === '') {
         continue;
     }
-    $performerLinks[] = '<a href="' . e(public_url('actress.php') . '?id=' . rawurlencode((string)$actressId)) . '">' . e($actressName) . '</a>';
+    $performerLinks[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $actressName])) . '">' . e($actressName) . '</a>';
 }
 $genreLinks = [];
 foreach ($genres as $genreRow) {
-    $genreId = (int)($genreRow['id'] ?? 0);
     $genreName = trim((string)($genreRow['name'] ?? ''));
-    if ($genreId <= 0 || $genreName === '') {
+    if ($genreName === '') {
         continue;
     }
-    $genreLinks[] = '<a href="' . e(public_url('genre.php') . '?id=' . rawurlencode((string)$genreId)) . '">' . e($genreName) . '</a>';
+    $genreLinks[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $genreName])) . '">' . e($genreName) . '</a>';
 }
 $seriesLinks = [];
-$seriesCanonicalRedirects = series_canonical_maker_redirects();
 foreach ($seriesList as $seriesRow) {
-    $seriesId = (int)($seriesRow['id'] ?? 0);
     $seriesName = trim((string)($seriesRow['name'] ?? ''));
-    if ($seriesId <= 0 || $seriesName === '' || isset($seriesCanonicalRedirects[$seriesId])) {
+    if ($seriesName === '') {
         continue;
     }
-    $seriesLinks[] = '<a href="' . e(public_url('series_detail.php') . '?id=' . rawurlencode((string)$seriesId)) . '">' . e($seriesName) . '</a>';
+    $seriesLinks[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $seriesName])) . '">' . e($seriesName) . '</a>';
 }
 $makerLinks = [];
 foreach ($makers as $makerRow) {
-    $makerId = (int)($makerRow['id'] ?? 0);
     $makerName = trim((string)($makerRow['name'] ?? ''));
-    if ($makerId <= 0 || $makerName === '') {
+    if ($makerName === '') {
         continue;
     }
-    $makerLinks[] = '<a href="' . e(public_url('maker.php') . '?id=' . rawurlencode((string)$makerId)) . '">' . e($makerName) . '</a>';
+    $makerLinks[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $makerName])) . '">' . e($makerName) . '</a>';
 }
 $authorLinks = [];
 foreach ($authors as $authorRow) {
-    $authorId = (int)($authorRow['id'] ?? 0);
     $authorName = trim((string)($authorRow['name'] ?? ''));
-    if ($authorId <= 0 || $authorName === '') {
+    if ($authorName === '') {
         continue;
     }
-    $authorLinks[] = '<a href="' . e(public_url('author.php') . '?id=' . rawurlencode((string)$authorId)) . '">' . e($authorName) . '</a>';
+    $authorLinks[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $authorName])) . '">' . e($authorName) . '</a>';
 }
 $tagText = item_pick_raw_text($raw, ['tag', 'tags']);
 if ($tagText === '') {
@@ -688,7 +676,7 @@ require __DIR__ . '/partials/header.php';
   <?php endif; ?>
 
   <?php if ($affiliateUrl !== ''): ?>
-    <p><a class="pcf-btn" style="display:block; text-align:center; border:2px solid #9aa0ab; font-weight:700; font-size:18px; padding:12px 14px;" href="<?= e($affiliateOutUrl) ?>" target="_blank" rel="noopener noreferrer sponsored nofollow">購入ボタン</a></p>
+    <p><a class="pcf-btn" style="display:block; text-align:center; border:2px solid #9aa0ab; font-weight:700; font-size:18px; padding:12px 14px;" href="<?= e($affiliateOutUrl) ?>" target="_blank" rel="noopener noreferrer">購入ボタン</a></p>
   <?php endif; ?>
 
   <section class="pcf-detail pcf-item-main">
@@ -713,7 +701,7 @@ require __DIR__ . '/partials/header.php';
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">作者</th><td style="padding:4px 0; border:0;"><?= $authorLinks !== [] ? implode('、', $authorLinks) : '―' ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">シリーズ</th><td style="padding:4px 0; border:0;"><?= $seriesLinks !== [] ? implode('、', $seriesLinks) : e($rawSeriesName !== '' ? $rawSeriesName : '―') ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">メーカー</th><td style="padding:4px 0; border:0;"><?= $makerLinks !== [] ? implode('、', $makerLinks) : e($rawMakerName !== '' ? $rawMakerName : '―') ?></td></tr>
-          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">レーベル</th><td style="padding:4px 0; border:0;"><?= $labelName !== '' ? '<a href="' . e(public_url('label.php') . '?' . http_build_query(['name' => $labelName])) . '">' . e($labelName) . '</a>' : '―' ?></td></tr>
+          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">レーベル</th><td style="padding:4px 0; border:0;"><?= $labelName !== '' ? '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $labelName])) . '">' . e($labelName) . '</a>' : '―' ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">ジャンル</th><td style="padding:4px 0; border:0;"><?= $genreLinks !== [] ? implode('、', $genreLinks) : e($genreText !== '' ? $genreText : '―') ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">関連タグ</th><td style="padding:4px 0; border:0;"><?= $tagLinks !== [] ? implode(' ', $tagLinks) : e($tagText !== '' ? $tagText : '―') ?></td></tr>
         </tbody>
@@ -722,7 +710,7 @@ require __DIR__ . '/partials/header.php';
   </section>
 
   <?php if ($affiliateUrl !== ''): ?>
-    <p><a class="pcf-btn" style="display:block; text-align:center; border:2px solid #9aa0ab; font-weight:700; font-size:18px; padding:12px 14px;" href="<?= e($affiliateOutUrl) ?>" target="_blank" rel="noopener noreferrer sponsored nofollow">購入ボタン</a></p>
+    <p><a class="pcf-btn" style="display:block; text-align:center; border:2px solid #9aa0ab; font-weight:700; font-size:18px; padding:12px 14px;" href="<?= e($affiliateOutUrl) ?>" target="_blank" rel="noopener noreferrer">購入ボタン</a></p>
   <?php endif; ?>
 
   <h2 class="pcf-section-title">関連作品</h2>
@@ -753,7 +741,7 @@ require __DIR__ . '/partials/header.php';
       $tabUrl = public_url(basename(__FILE__)) . '?' . http_build_query($tabQuery) . '#access-ranking';
       ?>
       <?php $tabStyle = $accessRankingPeriod === $tabKey ? 'display:inline-block; padding:6px 12px; border:1px solid #0b5ed7; border-radius:6px; background:#0b5ed7; color:#fff; font-weight:700; text-decoration:none;' : 'display:inline-block; padding:6px 12px; border:1px solid #0b5ed7; border-radius:6px; background:#fff; color:#0b5ed7; font-weight:700; text-decoration:none;'; ?>
-      <a href="<?= e($tabUrl) ?>" rel="nofollow" style="<?= e($tabStyle) ?>"><?= e((string)$tabConfig['label']) ?></a>
+      <a href="<?= e($tabUrl) ?>" style="<?= e($tabStyle) ?>"><?= e((string)$tabConfig['label']) ?></a>
     <?php endforeach; ?>
   </div>
     <?php if ($accessRankingRows !== []): ?>

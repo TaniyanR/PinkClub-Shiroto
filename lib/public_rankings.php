@@ -18,7 +18,7 @@ function pcf_public_ranking_period_start(string $period): string
 
 function pcf_public_weighted_ranking(string $type, string $period, int $limit = 200, bool $forceRefresh = false): array
 {
-    $allowedTypes = ['items', 'actresses', 'genres', 'makers', 'labels', 'series'];
+    $allowedTypes = ['items'];
     if (!in_array($type, $allowedTypes, true)) {
         return [];
     }
@@ -108,45 +108,13 @@ function pcf_public_ranking_item_score_sql(): string
 
 function pcf_public_ranking_sql(string $type, string $scoreSql, int $limit): string
 {
-    if ($type === 'items') {
-        return 'SELECT scores.id, scores.content_id, scores.title,
-                       scores.page_view_count, scores.out_click_count, scores.access_count
-                FROM (' . $scoreSql . ') scores
-                ORDER BY scores.access_count DESC, scores.out_click_count DESC, scores.id DESC
-                LIMIT ' . $limit;
+    if ($type !== 'items') {
+        throw new InvalidArgumentException('PinkClub-Shiroto supports item rankings only.');
     }
 
-    $config = [
-        'actresses' => ['relation' => 'item_actresses', 'master' => 'actresses'],
-        'genres' => ['relation' => 'item_genres', 'master' => 'genres'],
-        'makers' => ['relation' => 'item_makers', 'master' => 'makers'],
-        'series' => ['relation' => 'item_series', 'master' => 'series_master'],
-    ];
-
-    if (isset($config[$type])) {
-        $relation = $config[$type]['relation'];
-        $master = $config[$type]['master'];
-        return 'SELECT m.id, m.dmm_id, m.name,
-                       SUM(scores.page_view_count) AS page_view_count,
-                       SUM(scores.out_click_count) AS out_click_count,
-                       SUM(scores.access_count) AS access_count
-                FROM (' . $scoreSql . ') scores
-                INNER JOIN ' . $relation . ' r ON r.item_id = scores.id
-                INNER JOIN ' . $master . ' m ON m.dmm_id = r.dmm_id
-                GROUP BY m.id, m.dmm_id, m.name
-                ORDER BY access_count DESC, out_click_count DESC, m.id DESC
-                LIMIT ' . $limit;
-    }
-
-    return 'SELECT COALESCE(NULLIF(il.dmm_id, ""), il.label_name) AS id,
-                   il.label_name AS name,
-                   SUM(scores.page_view_count) AS page_view_count,
-                   SUM(scores.out_click_count) AS out_click_count,
-                   SUM(scores.access_count) AS access_count
+    return 'SELECT scores.id, scores.content_id, scores.title,
+                   scores.page_view_count, scores.out_click_count, scores.access_count
             FROM (' . $scoreSql . ') scores
-            INNER JOIN item_labels il ON il.item_id = scores.id
-            WHERE TRIM(COALESCE(il.label_name, "")) <> ""
-            GROUP BY COALESCE(NULLIF(il.dmm_id, ""), il.label_name), il.label_name
-            ORDER BY access_count DESC, out_click_count DESC, il.label_name ASC
+            ORDER BY scores.access_count DESC, scores.out_click_count DESC, scores.id DESC
             LIMIT ' . $limit;
 }

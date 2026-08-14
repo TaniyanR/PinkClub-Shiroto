@@ -17,7 +17,7 @@ function pcf_crawler_guard_request_path(): string
 
 function pcf_crawler_guard_is_public_heavy_path(string $path): bool
 {
-    return preg_match('#/(?:public/)?(?:item|actress|genre|maker|label|series_detail)\.php$#', $path) === 1;
+    return preg_match('#/(?:public/)?item\.php$#', $path) === 1;
 }
 
 function pcf_crawler_guard_is_known_crawler(string $userAgent): bool
@@ -79,8 +79,8 @@ function pcf_crawler_guard_check(): void
         rate_limit_check('public_rank_period_' . basename($path), 20, 60);
     }
 
-    // Do not throttle normal crawler requests here. Google can legitimately
-    // fetch many detail URLs from one address in a short period, and returning
-    // 429/overload responses makes healthy pages appear as server errors in
-    // Search Console. Expensive rank-period variants are handled above.
+    $userAgent = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
+    if (pcf_crawler_guard_is_known_crawler($userAgent)) {
+        rate_limit_check('public_crawler_' . basename($path), 10, 60);
+    }
 }

@@ -112,7 +112,7 @@ function fetch_item_by_content_id(string $contentId): ?array
     $stmt = db()->prepare(
         'SELECT * FROM items
          WHERE content_id = :cid
-           AND ' . items_product_source_where() . '
+           AND ' . items_front_release_where() . '
          ORDER BY
            CASE
              WHEN title LIKE "%お問い合わせ%" OR title LIKE "%問合せ%" OR title = "Privacy Policy" OR title = "サイトについて" THEN 1
@@ -385,21 +385,6 @@ function fetch_series_one(int $seriesId): ?array
     }
 }
 
-/**
- * Search Console-confirmed taxonomy duplicates.
- *
- * Keep the source records intact for administration/API sync while routing the
- * public duplicate URL to the already indexed canonical maker page.
- *
- * @return array<int,int> series ID => maker ID
- */
-function series_canonical_maker_redirects(): array
-{
-    return [
-        5214 => 7681,
-    ];
-}
-
 function fetch_genres(int $limit = 50, int $offset = 0, string $order = 'name'): array
 {
     $orderBy = normalize_order($order, ['name', 'created_at', 'updated_at'], 'name');
@@ -467,10 +452,6 @@ function fetch_series(int $limit = 50, int $offset = 0, string $order = 'name'):
     $orderBy = normalize_order($order, ['name', 'created_at', 'updated_at'], 'name');
     $limit   = normalize_int($limit, 1, 200);
     $offset  = max(0, $offset);
-    $redirectSeriesIds = array_keys(series_canonical_maker_redirects());
-    $redirectWhere = $redirectSeriesIds !== []
-        ? ' AND series_master.id NOT IN (' . implode(',', array_map('intval', $redirectSeriesIds)) . ')'
-        : '';
 
     try {
         $stmt = db()->prepare(
@@ -483,7 +464,6 @@ function fetch_series(int $limit = 50, int $offset = 0, string $order = 'name'):
                WHERE item_series.dmm_id = series_master.dmm_id
                  AND " . items_product_source_where('items') . "
              )
-             {$redirectWhere}
              ORDER BY series_master.{$orderBy} ASC
              LIMIT :limit OFFSET :offset"
         );
@@ -813,7 +793,7 @@ function fetch_related_items(string $contentId, int $limit = 12): array
                INNER JOIN item_genres ig2 ON ig2.dmm_id = ig1.dmm_id
                INNER JOIN items i2 ON i2.id = ig2.item_id
                WHERE i1.content_id = :cid AND i2.content_id <> :cid
-                 AND ' . items_product_source_where('i2') . '
+                 AND ' . items_front_release_where('i2') . '
                GROUP BY i2.id
                ORDER BY i2.release_date DESC, i2.id DESC
                LIMIT :limit'
@@ -823,7 +803,7 @@ function fetch_related_items(string $contentId, int $limit = 12): array
                INNER JOIN item_genres ig2 ON ig2.genre_id = ig1.genre_id
                INNER JOIN items i2 ON i2.content_id = ig2.content_id
                WHERE i1.content_id = :cid AND i2.content_id <> :cid
-                 AND ' . items_product_source_where('i2') . '
+                 AND ' . items_front_release_where('i2') . '
                GROUP BY i2.id
                ORDER BY i2.release_date DESC, i2.id DESC
                LIMIT :limit';
@@ -840,7 +820,7 @@ function fetch_related_items(string $contentId, int $limit = 12): array
 
     try {
         $stmt = db()->prepare(
-            'SELECT * FROM items WHERE content_id <> :cid AND ' . items_product_source_where() . ' ORDER BY release_date DESC, id DESC LIMIT :limit'
+            'SELECT * FROM items WHERE content_id <> :cid AND ' . items_front_release_where() . ' ORDER BY release_date DESC, id DESC LIMIT :limit'
         );
         $stmt->bindValue(':cid', $cid, PDO::PARAM_STR);
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -860,12 +840,11 @@ function fetch_item_actresses(string $contentId): array
 
     try {
         $sql = db_column_exists('item_actresses', 'item_id')
-            ? 'SELECT DISTINCT actresses.id, actresses.name, actresses.ruby, actresses.birthday, actresses.prefectures, actresses.image_url
+            ? 'SELECT DISTINCT 0 AS id, item_actresses.actress_name AS name
                FROM items
-               INNER JOIN item_actresses ON items.id         = item_actresses.item_id
-               INNER JOIN actresses      ON actresses.dmm_id = item_actresses.dmm_id
+               INNER JOIN item_actresses ON items.id = item_actresses.item_id
                WHERE items.content_id = :cid
-               ORDER BY actresses.name ASC'
+               ORDER BY item_actresses.actress_name ASC'
             : 'SELECT actresses.*
                FROM actresses
                INNER JOIN item_actresses ON actresses.id = item_actresses.actress_id

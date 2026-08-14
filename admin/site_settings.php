@@ -61,19 +61,13 @@ $saveImage = static function (array $file, string $prefix, int $minW, int $maxW,
         return ['ok' => false, 'message' => '対応していない拡張子です。'];
     }
 
-    try {
-        $uniqueSuffix = bin2hex(random_bytes(8));
-    } catch (Throwable) {
-        $uniqueSuffix = str_replace('.', '', uniqid('', true));
-    }
-    $storedName = sprintf('%s-%s.%s', $prefix, $uniqueSuffix, $ext);
-    $dest = $uploadDir . '/' . $storedName;
+    $dest = $uploadDir . '/' . $name;
 
     if (!move_uploaded_file($tmp, $dest)) {
         return ['ok' => false, 'message' => '画像の保存に失敗しました。'];
     }
 
-    return ['ok' => true, 'path' => 'uploads/site_settings/' . $storedName];
+    return ['ok' => true, 'path' => 'uploads/site_settings/' . $name];
 };
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

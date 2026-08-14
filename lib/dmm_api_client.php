@@ -11,36 +11,6 @@ class DmmApiClient
     ) {
     }
 
-    public function fetchFloorList(): array
-    {
-        return $this->request('FloorList');
-    }
-
-    public function searchActresses(array $params = []): array
-    {
-        return $this->request('ActressSearch', $params);
-    }
-
-    public function searchGenres(array $params = []): array
-    {
-        return $this->request('GenreSearch', $params);
-    }
-
-    public function searchMakers(array $params = []): array
-    {
-        return $this->request('MakerSearch', $params);
-    }
-
-    public function searchSeries(array $params = []): array
-    {
-        return $this->request('SeriesSearch', $params);
-    }
-
-    public function searchAuthors(array $params = []): array
-    {
-        return $this->request('AuthorSearch', $params);
-    }
-
     public function fetchItems(string $site, string $service, string $floor, array $params = []): array
     {
         return $this->request('ItemList', array_merge($params, ['site' => $site, 'service' => $service, 'floor' => $floor]));

@@ -70,7 +70,7 @@ function pcf_session_is_required(): bool
 if (session_status() !== PHP_SESSION_ACTIVE) {
     $sessionLifetime = (int)($config['security']['session_lifetime'] ?? 86400);
     ini_set('session.gc_maxlifetime', (string)$sessionLifetime);
-    session_name($config['security']['session_name'] ?? 'pinkclub_fanza_session');
+    session_name($config['security']['session_name'] ?? 'pinkclub_shiroto_session');
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
     session_set_cookie_params([
