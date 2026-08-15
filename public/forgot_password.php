@@ -47,7 +47,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     . "メールアドレス: " . (string)$u['email'] . "\n"
                     . "再設定URL: " . $resetUrl . "\n\n"
                     . "このURLは1時間で期限切れになります。";
-                $ok = @mail($email, '[PinkClub-Shiroto] Password Reset', $body);
+                $ok = @mail($email, '[PinkClub-FANZA] Password Reset', $body);
             } else {
                 $ok = true;
             }
@@ -69,7 +69,7 @@ if (headers_sent() === false) {
 }
 
 $faviconPath = trim(site_setting_get('site.favicon_path', ''));
-$faviconUrl = $faviconPath !== '' ? public_versioned_url($faviconPath) : '';
+$faviconUrl = $faviconPath !== '' ? public_url($faviconPath) : '';
 $faviconType = strtolower((string)pathinfo($faviconPath, PATHINFO_EXTENSION)) === 'png' ? 'image/png' : 'image/x-icon';
 
 ?>
@@ -79,7 +79,7 @@ $faviconType = strtolower((string)pathinfo($faviconPath, PATHINFO_EXTENSION)) ==
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>パスワード再発行 | PinkClub-Shiroto</title>
+  <title>パスワード再発行 | PinkClub-FANZA</title>
   <?php if ($faviconUrl !== ''): ?>
     <link rel="icon" href="<?= e($faviconUrl) ?>" sizes="any" type="<?= e($faviconType) ?>">
     <link rel="shortcut icon" href="<?= e($faviconUrl) ?>" type="<?= e($faviconType) ?>">
@@ -90,7 +90,7 @@ $faviconType = strtolower((string)pathinfo($faviconPath, PATHINFO_EXTENSION)) ==
 <body class="login-page">
   <main class="login-wrap">
     <section class="login-card">
-      <h1 class="login-title">PinkClub-Shiroto</h1>
+      <h1 class="login-title">PinkClub-FANZA</h1>
       <p class="login-subtitle">パスワード再発行</p>
 
       <?php if ($message !== '') : ?><p><?php echo e($message); ?></p><?php endif; ?>

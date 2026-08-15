@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/public/_bootstrap.php';
 require_once __DIR__ . '/lib/repository.php';
-require_once __DIR__ . '/lib/home_rotation_cache.php';
+require_once __DIR__ . '/public/partials/public_ui.php';
 
 function redirect_canonical_home_url(): void
 {
@@ -29,6 +29,10 @@ function redirect_canonical_home_url(): void
         $canonicalUrl = rtrim(BASE_URL, '/') . '/';
         if (str_starts_with($canonicalUrl, 'http://')) {
             $canonicalUrl = 'https://' . substr($canonicalUrl, 7);
+        }
+        $queryString = (string)($_SERVER['QUERY_STRING'] ?? '');
+        if ($queryString !== '') {
+            $canonicalUrl .= '?' . $queryString;
         }
         header('Location: ' . $canonicalUrl, true, 301);
         exit;
@@ -120,36 +124,6 @@ function normalize_movie_url(string $url): string
     return '';
 }
 
-
-function normalize_index_image_url(string $url): string
-{
-    $url = trim($url);
-    if ($url === '') {
-        return '';
-    }
-
-    if (str_starts_with($url, '//')) {
-        return 'https:' . $url;
-    }
-
-    if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-        return $url;
-    }
-
-    return '';
-}
-
-function actress_index_image(array $actress): string
-{
-    foreach (['image_small', 'image_large', 'image_url'] as $key) {
-        $candidate = normalize_index_image_url((string)($actress[$key] ?? ''));
-        if ($candidate !== '') {
-            return $candidate;
-        }
-    }
-
-    return '';
-}
 
 function parse_index_image_urls(?string $value): array
 {
@@ -264,14 +238,15 @@ function home_column_exists(PDO $pdo, string $table, string $column): bool
     }
 }
 
-function fetch_items_with_order_fallback(PDO $pdo, array $orderByCandidates, int $limit): array
+function fetch_items_with_order_fallback(PDO $pdo, array $orderByCandidates, int $limit, int $offset = 0): array
 {
     $limit = max(1, min(300, $limit));
+    $offset = max(0, $offset);
     $sourceWhere = items_product_source_where();
     $sourceWhereSql = $sourceWhere !== '' ? ' WHERE ' . $sourceWhere : '';
 
     foreach ($orderByCandidates as $orderBy) {
-        $rows = query_all_safe($pdo, 'SELECT * FROM items' . $sourceWhereSql . ' ORDER BY ' . $orderBy . ' LIMIT ' . $limit);
+        $rows = query_all_safe($pdo, 'SELECT * FROM items' . $sourceWhereSql . ' ORDER BY ' . $orderBy . ' LIMIT ' . $limit . ' OFFSET ' . $offset);
         if ($rows !== []) {
             return $rows;
         }
@@ -322,45 +297,16 @@ function item_sample_state(array $item): array
     return ['movie_url' => $firstMovieUrl, 'movie_urls' => $movieUrls, 'has_images' => $hasImageSample];
 }
 
-function pick_full_package_image(array $item): string
-{
-    foreach (['image_large', 'image_list', 'image_small'] as $key) {
-        if ($key === 'image_list') {
-            foreach (parse_index_image_urls((string)($item['image_list'] ?? '')) as $image) {
-                $candidate = trim((string)$image);
-                if ($candidate !== '') {
-                    return $candidate;
-                }
-            }
-            continue;
-        }
-        $candidate = trim((string)($item[$key] ?? ''));
-        if ($candidate !== '') {
-            return $candidate;
-        }
-    }
-
-    return '';
-}
-
 function render_item_card(array $item, int $width = 180, ?array $taxonomy = null, bool $preferFullPackageImage = false, bool $lazyLoad = true): void
 {
     $itemUrl = app_url('public/item.php?id=' . (int)$item['id']);
     $title = (string)($item['title'] ?? '');
     $sample = item_sample_state($item);
     $movieClass = $sample['movie_url'] !== '' ? 'sample-button sample-button--enabled' : 'sample-button sample-button--disabled';
-    $imageClass = $sample['has_images'] ? 'sample-button sample-button--enabled' : 'sample-button sample-button--disabled';
-    $sampleImagesUrl = public_url('sample_images.php?content_id=' . rawurlencode((string)($item['content_id'] ?? '')));
-    $thumbUrl = trim((string)($item['image_small'] ?? ''));
-    if ($preferFullPackageImage) {
-        $fullPackageImage = pick_full_package_image($item);
-        if ($fullPackageImage !== '') {
-            $thumbUrl = $fullPackageImage;
-        }
-    }
-    if ($thumbUrl === '') {
-        $thumbUrl = trim((string)($item['image_large'] ?? ''));
-    }
+    // The amateur-video floor may keep its usable package image only in raw_json.
+    // Use the same resolver as the detail page so cards do not fall back to the
+    // provider's NOW PRINTING image while the detail page has a real image.
+    $thumbUrl = trim(pcf_item_image($item));
     ?>
     <article class="card rail-card rail-card--<?= (int)$width ?>" style="width:<?= (int)$width ?>px;min-width:<?= (int)$width ?>px;max-width:<?= (int)$width ?>px;">
       <?php if ($thumbUrl !== ''): ?>
@@ -373,7 +319,6 @@ function render_item_card(array $item, int $width = 180, ?array $taxonomy = null
         <?php $releaseDateRaw = trim((string)($item['release_date'] ?? '')); ?>
         <span style="display:block;width:100%;padding:12px 10px;text-align:center;color:#000;background:transparent;border:1px solid #000;border-radius:4px;font-size:14px;font-weight:700;box-sizing:border-box;"><?= $releaseDateRaw !== '' ? '発売日：' . e(format_date($releaseDateRaw)) : '発売日' ?></span>
         <button type="button" class="<?= e($movieClass) ?> sample-movie-trigger" <?= $sample['movie_url'] === '' ? 'disabled' : '' ?> data-movie-url="<?= e((string)$sample['movie_url']) ?>" data-movie-title="<?= e($title) ?>">サンプル動画</button>
-        <button type="button" class="<?= e($imageClass) ?>" <?= !$sample['has_images'] ? 'disabled' : '' ?> onclick="<?= $sample['has_images'] ? "window.open('" . e($sampleImagesUrl) . "','_blank','noopener,noreferrer,width=760,height=540');" : 'return false;' ?>">サンプル画像</button>
       </div>
     </article>
     <?php
@@ -409,196 +354,27 @@ function safe_render_home_ad(string $positionKey): void
 
 $title = 'トップ';
 $itemCount = 0;
-
-$newReleaseTop = $newReleaseBottom = $latestTop = $latestBottom = $pickupTop = $pickupBottom = [];
-$fallbackItems = [];
-$actresses = [];
-$genreRows = [];
-$seriesSection = ['id' => 0, 'name' => '', 'items' => []];
-$makerSection = ['id' => 0, 'name' => '', 'items' => []];
-$authorSection = ['name' => '', 'url' => '', 'items' => []];
+$page = max(1, (int)get('page', 1));
+$per = 32;
+$pg = paginate(0, $page, $per);
+$latestItems = [];
 
 try {
     $pdo = db();
-    $homeRotationCache = pcf_home_rotation_load();
     $sourceWhere = items_product_source_where();
     $sourceWhereSql = $sourceWhere !== '' ? ' WHERE ' . $sourceWhere : '';
-    $itemExistsStmt = $pdo->query('SELECT 1 FROM items' . $sourceWhereSql . ' LIMIT 1');
-    $itemCount = ($itemExistsStmt && $itemExistsStmt->fetchColumn()) ? 1 : 0;
+    $itemCount = (int)$pdo->query('SELECT COUNT(*) FROM items' . $sourceWhereSql)->fetchColumn();
 
     if ($itemCount > 0) {
-        $seedBase = intdiv(time(), 1800);
-        $usedHomeItemKeys = [];
-
-        $newReleaseRows = fetch_items_with_order_fallback($pdo, [
-            'release_date DESC, id ASC',
-        ], 40);
-        $usedNewReleaseItemKeys = [];
-        $newReleaseRows = take_unique_items_for_home($newReleaseRows, $usedNewReleaseItemKeys, 20);
-        $newReleaseTop = array_slice($newReleaseRows, 0, 5);
-        $newReleaseBottom = array_slice($newReleaseRows, 5, 15);
-
+        $pg = paginate($itemCount, $page, $per);
         $latestRows = fetch_items_with_order_fallback($pdo, [
             'release_date DESC, updated_at DESC, id DESC',
             'date_published DESC, updated_at DESC, id DESC',
             'updated_at DESC, id DESC',
             'id DESC',
-        ], 40);
-        $latestRows = take_unique_items_for_home($latestRows, $usedHomeItemKeys, 20);
-        $latestTop = array_slice($latestRows, 0, 5);
-        $latestBottom = array_slice($latestRows, 5, 15);
-        $fallbackItems = array_slice($latestRows, 0, 12);
-
-        $popularWhereSql = $sourceWhereSql !== '' ? $sourceWhereSql . ' AND view_count > 0' : ' WHERE view_count > 0';
-        $popularRows = query_all_safe($pdo, 'SELECT * FROM items' . $popularWhereSql . ' ORDER BY view_count DESC, release_date DESC, id DESC LIMIT 40');
-        $popularRows = take_unique_items_for_home($popularRows, $usedHomeItemKeys, 20);
-        if (count($popularRows) < 20) {
-            $randomRows = pcf_home_rotation_current_set($homeRotationCache, 'items');
-            if ($randomRows === []) {
-                $randomRows = fetch_items_with_order_fallback($pdo, ['created_at DESC,id DESC'], 40);
-            }
-            $popularRows = array_merge($popularRows, take_unique_items_for_home($randomRows, $usedHomeItemKeys, 20 - count($popularRows)));
-        }
-        $pickupTop = array_slice($popularRows, 0, 5);
-        $pickupBottom = array_slice($popularRows, 5, 15);
-
-        if (db_table_exists($pdo, 'actresses')) {
-            $actresses = pcf_home_rotation_current_set($homeRotationCache, 'actresses');
-            if ($actresses === []) {
-                $actressCandidates = $pdo->query('SELECT id,name,image_small,image_large,image_url FROM actresses ORDER BY updated_at DESC,id DESC LIMIT 30')->fetchAll();
-                $actresses = array_slice($actressCandidates ?: [], 0, 15);
-            }
-        }
-
-        if (db_table_exists($pdo, 'genres') && db_table_exists($pdo, 'item_genres')) {
-            $genreCandidates = pcf_home_rotation_current_set($homeRotationCache, 'genres');
-            if ($genreCandidates === []) {
-                $genreCandidates = query_all_safe($pdo, 'SELECT g.id,g.name,COUNT(ig.id) AS item_count FROM genres g INNER JOIN item_genres ig ON ig.genre_id = g.id GROUP BY g.id,g.name HAVING COUNT(ig.id) > 0 ORDER BY item_count DESC,g.id DESC LIMIT 3');
-                if ($genreCandidates === []) {
-                    $genreCandidates = query_all_safe($pdo, 'SELECT g.id,g.name,COUNT(*) AS item_count FROM genres g INNER JOIN item_genres ig ON ig.dmm_id = g.dmm_id GROUP BY g.id,g.name HAVING COUNT(*) > 0 ORDER BY item_count DESC,g.id DESC LIMIT 3');
-                }
-            }
-            foreach (array_slice($genreCandidates, 0, 3) as $index => $genre) {
-                $genreItems = [];
-                foreach ([
-                    'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_genres ig ON ig.item_id = i.id INNER JOIN genres g ON g.dmm_id = ig.dmm_id WHERE g.id = :id ORDER BY i.view_count DESC, i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120',
-                    'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_genres ig ON ig.item_id = i.id INNER JOIN genres g ON g.dmm_id = ig.dmm_id WHERE g.id = :id ORDER BY i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120',
-                ] as $genreSql) {
-                    $genreItems = query_all_safe($pdo, $genreSql, [':id' => (int)$genre['id']]);
-                    if ($genreItems !== []) {
-                        break;
-                    }
-                }
-                if ($genreItems === [] && home_column_exists($pdo, 'item_genres', 'content_id') && home_column_exists($pdo, 'item_genres', 'genre_id')) {
-                    foreach ([
-                        'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_genres ig ON ig.content_id = i.content_id WHERE ig.genre_id = :id ORDER BY i.view_count DESC, i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120',
-                        'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_genres ig ON ig.content_id = i.content_id WHERE ig.genre_id = :id ORDER BY i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120',
-                    ] as $genreSql) {
-                        $genreItems = query_all_safe($pdo, $genreSql, [':id' => (int)$genre['id']]);
-                        if ($genreItems !== []) {
-                            break;
-                        }
-                    }
-                }
-                $genrePool = pick_random_items($genreItems, $seedBase + 30 + $index, 120);
-                $genreItems = take_unique_items_for_home($genrePool, $usedHomeItemKeys, 15);
-                if ($genreItems === []) {
-                    $genreItems = array_slice(dedupe_items_by_key($genrePool), 0, 15);
-                }
-                if ($genreItems !== []) {
-                    $genreRows[] = ['id' => (int)$genre['id'], 'name' => (string)$genre['name'], 'items' => $genreItems];
-                }
-            }
-        }
-
-        if (db_table_exists($pdo, 'item_series') && (db_table_exists($pdo, 'series') || db_table_exists($pdo, 'series_master'))) {
-            $seriesCandidates = [];
-            if (db_table_exists($pdo, 'series')) {
-                $seriesCandidates = query_all_safe($pdo, 'SELECT s.id,s.name,COUNT(isr.id) AS item_count FROM series s INNER JOIN item_series isr ON isr.series_id = s.id GROUP BY s.id,s.name HAVING COUNT(isr.id) > 0 ORDER BY item_count DESC,s.id DESC LIMIT 120');
-            }
-            if ($seriesCandidates === [] && db_table_exists($pdo, 'series_master')) {
-                $seriesCandidates = query_all_safe($pdo, 'SELECT s.id,s.name,COUNT(isr.id) AS item_count FROM series_master s INNER JOIN item_series isr ON isr.dmm_id = s.dmm_id GROUP BY s.id,s.name HAVING COUNT(isr.id) > 0 ORDER BY item_count DESC,s.id DESC LIMIT 120');
-            }
-            if ($seriesCandidates !== []) {
-                $seriesCandidates = seeded_shuffle($seriesCandidates, $seedBase + 40);
-                $picked = $seriesCandidates[0];
-                $seriesItems = query_all_safe($pdo, 'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_series isr ON isr.item_id = i.id INNER JOIN series_master s ON s.dmm_id = isr.dmm_id WHERE s.id = :id ORDER BY i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120', [':id' => (int)$picked['id']]);
-                if ($seriesItems === [] && home_column_exists($pdo, 'item_series', 'content_id') && home_column_exists($pdo, 'item_series', 'series_id')) {
-                    $seriesItems = query_all_safe($pdo, 'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_series isr ON isr.content_id = i.content_id WHERE isr.series_id = :id ORDER BY i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120', [':id' => (int)$picked['id']]);
-                }
-                $seriesPool = pick_random_items($seriesItems, $seedBase + 41, 120);
-                $seriesItems = take_unique_items_for_home($seriesPool, $usedHomeItemKeys, 15);
-                if ($seriesItems === []) {
-                    $seriesItems = array_slice(dedupe_items_by_key($seriesPool), 0, 15);
-                }
-                if ($seriesItems !== []) {
-                    $seriesSection = [
-                        'id' => (int)$picked['id'],
-                        'name' => (string)$picked['name'],
-                        'items' => $seriesItems,
-                    ];
-                }
-            }
-        }
-
-
-
-        if (db_table_exists($pdo, 'makers') && db_table_exists($pdo, 'item_makers')) {
-            $makerCandidates = query_all_safe($pdo, 'SELECT m.id,m.name,COUNT(im.id) AS item_count FROM makers m INNER JOIN item_makers im ON im.maker_id = m.id GROUP BY m.id,m.name HAVING COUNT(im.id) > 0 ORDER BY item_count DESC,m.id DESC LIMIT 120');
-            if ($makerCandidates === []) {
-                $makerCandidates = query_all_safe($pdo, 'SELECT m.id,m.name,COUNT(im.id) AS item_count FROM makers m INNER JOIN item_makers im ON im.dmm_id = m.dmm_id GROUP BY m.id,m.name HAVING COUNT(im.id) > 0 ORDER BY item_count DESC,m.id DESC LIMIT 120');
-            }
-            if ($makerCandidates !== []) {
-                $makerCandidates = seeded_shuffle($makerCandidates, $seedBase + 50);
-                $picked = $makerCandidates[0];
-                $makerItems = query_all_safe($pdo, 'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_makers im ON im.item_id = i.id INNER JOIN makers m ON m.dmm_id = im.dmm_id WHERE m.id = :id ORDER BY i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120', [':id' => (int)$picked['id']]);
-                if ($makerItems === [] && home_column_exists($pdo, 'item_makers', 'content_id') && home_column_exists($pdo, 'item_makers', 'maker_id')) {
-                    $makerItems = query_all_safe($pdo, 'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at FROM items i INNER JOIN item_makers im ON im.content_id = i.content_id WHERE im.maker_id = :id ORDER BY i.release_date DESC, i.updated_at DESC, i.id DESC LIMIT 120', [':id' => (int)$picked['id']]);
-                }
-                $makerPool = pick_random_items($makerItems, $seedBase + 51, 120);
-                $makerItems = take_unique_items_for_home($makerPool, $usedHomeItemKeys, 15);
-                if ($makerItems === []) {
-                    $makerItems = array_slice(dedupe_items_by_key($makerPool), 0, 15);
-                }
-                if ($makerItems !== []) {
-                    $makerSection = [
-                        'id' => (int)$picked['id'],
-                        'name' => (string)$picked['name'],
-                        'items' => $makerItems,
-                    ];
-                }
-            }
-        }
-
-
-
-        if (db_table_exists($pdo, 'authors') && db_table_exists($pdo, 'item_authors')) {
-            $authorCandidates = $pdo->query('SELECT a.id,a.name,COUNT(ia.id) AS item_count FROM authors a INNER JOIN item_authors ia ON ia.dmm_id = a.dmm_id GROUP BY a.id,a.name HAVING COUNT(ia.id) > 0 ORDER BY item_count DESC,a.id DESC LIMIT 120')->fetchAll();
-            if ($authorCandidates !== []) {
-                $authorCandidates = seeded_shuffle($authorCandidates, $seedBase + 60);
-                $picked = $authorCandidates[0];
-                $stmt = $pdo->prepare(
-                    'SELECT i.id,i.content_id,i.title,i.image_small,i.image_large,i.image_list,i.raw_json,i.affiliate_url,i.sample_movie_url_720,i.sample_movie_url_644,i.sample_movie_url_560,i.sample_movie_url_476,i.release_date,i.updated_at
-                     FROM items i
-                     INNER JOIN item_authors ia ON ia.item_id = i.id
-                     INNER JOIN authors a ON a.dmm_id = ia.dmm_id
-                     WHERE a.id = :id
-                     ORDER BY i.release_date DESC, i.updated_at DESC, i.id DESC
-                     LIMIT 120'
-                );
-                $stmt->execute([':id' => (int)$picked['id']]);
-                $authorPool = pick_random_items($stmt->fetchAll() ?: [], $seedBase + 61, 120);
-                $authorItems = take_unique_items_for_home($authorPool, $usedHomeItemKeys, 15);
-                if ($authorItems === []) {
-                    $authorItems = array_slice(dedupe_items_by_key($authorPool), 0, 15);
-                }
-                $authorSection = [
-                    'name' => (string)$picked['name'],
-                    'url' => app_url('public/author.php?id=' . (int)$picked['id']),
-                    'items' => $authorItems,
-                ];
-            }
-        }
+        ], $per + 8, (int)$pg['offset']);
+        $usedItemKeys = [];
+        $latestItems = take_unique_items_for_home($latestRows, $usedItemKeys, $per);
     }
 } catch (Throwable $e) {
     error_log('public/index.php load failed: ' . $e->getMessage());
@@ -606,114 +382,35 @@ try {
 
 $title = 'トップ';
 $pageDescription = function_exists('setting_site_tagline') ? setting_site_tagline('') : '';
-$canonicalUrl = public_url('index.php');
+$homeUrl = public_url('');
+$canonicalUrl = $homeUrl
+    . ((int)($pg['page'] ?? 1) > 1 ? '?' . http_build_query(['page' => (int)$pg['page']]) : '');
+if ((int)($pg['page'] ?? 1) > 1) {
+    $relPrev = $homeUrl . '?' . http_build_query(['page' => (int)$pg['page'] - 1]);
+}
+if ((int)($pg['page'] ?? 1) < (int)($pg['pages'] ?? 1)) {
+    $relNext = $homeUrl . '?' . http_build_query(['page' => (int)$pg['page'] + 1]);
+}
 require __DIR__ . '/public/partials/header.php';
-$hasHomeContent = $newReleaseTop !== []
-    || $newReleaseBottom !== []
-    || $latestTop !== []
-    || $latestBottom !== []
-    || $pickupTop !== []
-    || $pickupBottom !== []
-    || $actresses !== []
-    || $genreRows !== []
-    || $seriesSection['items'] !== []
-    || $makerSection['items'] !== []
-    || $authorSection['items'] !== [];
 ?>
 
 <?php if ($itemCount === 0): ?>
   <div class="card"><p>まだ商品データが同期されていません。管理画面のAPI設定から「同期実行（DB保存）」を行ってください。</p></div>
-<?php elseif (!$hasHomeContent): ?>
+<?php elseif ($latestItems === []): ?>
   <div class="card">
-    <h2>表示できる本文データがまだありません</h2>
-    <p>商品データは存在しますが、トップページに表示するセクションを組み立てられませんでした。下の作品一覧から確認してください。</p>
-    <p><a class="button button--primary" href="<?= e(public_url('items.php')) ?>">商品一覧を見る</a></p>
+    <h2>表示できる商品データがありません</h2>
+    <p>ページを再読み込みするか、キーワード検索をお試しください。</p>
   </div>
-  <?php if ($fallbackItems !== []): ?>
-    <section class="rail-section">
-      <h2>取得できた作品</h2>
-      <div class="rail-row rail-row--180"><?php foreach ($fallbackItems as $item) { render_item_card($item, 180); } ?></div>
-    </section>
-  <?php endif; ?>
 <?php else: ?>
-  <section class="rail-section only-pc home-feature-section">
-    <h2>新作作品</h2>
-    <div class="rail-row rail-row--210 rail-row--no-scroll rail-row--top-shift rail-row--between-gap"><?php foreach ($newReleaseTop as $item) { render_item_card($item, 210, null, false, false); } ?></div>
-    <div class="rail-row rail-row--200 rail-row--wide-thumb rail-row--bottom-scroll rail-row--bottom-horizontal rail-row--home-taxonomy"><?php foreach ($newReleaseBottom as $item) { render_item_card($item, 200, null, true); } ?></div>
-  </section>
-  <section class="rail-section only-sp">
-    <h2>新作作品</h2>
-    <div class="rail-row rail-row--210 rail-row--no-scroll rail-row--top-shift"><?php foreach ($newReleaseTop as $item) { render_item_card($item, 210, null, true, false); } ?></div>
-  </section>
-
-  <section class="rail-section only-pc home-feature-section">
+  <section class="rail-section pinkclub-fl-product-section">
     <h2>新着作品</h2>
-    <div class="rail-row rail-row--210 rail-row--no-scroll rail-row--top-shift rail-row--between-gap"><?php foreach ($latestTop as $item) { render_item_card($item, 210, null, false, false); } ?></div>
-    <div class="rail-row rail-row--200 rail-row--wide-thumb rail-row--bottom-scroll rail-row--bottom-horizontal rail-row--home-taxonomy"><?php foreach ($latestBottom as $item) { render_item_card($item, 200, null, true); } ?></div>
-  </section>
-  <section class="rail-section only-sp">
-    <h2>新着作品</h2>
-    <div class="rail-row rail-row--210 rail-row--no-scroll rail-row--top-shift"><?php foreach ($latestTop as $item) { render_item_card($item, 210, null, true, false); } ?></div>
-  </section>
-
-  <section class="rail-section only-pc home-feature-section">
-    <h2>ピックアップ</h2>
-    <div class="rail-row rail-row--210 rail-row--no-scroll rail-row--top-shift rail-row--between-gap"><?php foreach ($pickupTop as $item) { render_item_card($item, 210, null, false, false); } ?></div>
-    <div class="rail-row rail-row--200 rail-row--wide-thumb rail-row--bottom-scroll rail-row--bottom-horizontal rail-row--home-taxonomy"><?php foreach ($pickupBottom as $item) { render_item_card($item, 200, null, true); } ?></div>
-  </section>
-  <section class="rail-section only-sp">
-    <h2>ピックアップ</h2>
-    <div class="rail-row rail-row--210 rail-row--no-scroll rail-row--top-shift"><?php foreach ($pickupTop as $item) { render_item_card($item, 210, null, true, false); } ?></div>
-  </section>
-
-  <section class="rail-section">
-    <h2>女優</h2>
-    <div class="rail-row rail-row--180 rail-row--home-actresses">
-      <?php foreach ($actresses as $actress): ?>
-        <?php $actressImage = actress_index_image(is_array($actress) ? $actress : []); ?>
-        <article class="card rail-card rail-card--180">
-          <?php if ($actressImage !== ''): ?><img class="thumb" src="<?= e($actressImage) ?>" alt="<?= e((string)$actress['name']) ?>"><?php else: ?><div class="rail-card__noimage" style="width:180px;height:180px;">画像なし</div><?php endif; ?>
-          <a class="rail-card__title" href="<?= e(app_url('public/actress.php?id=' . (int)$actress['id'])) ?>"><?= e((string)$actress['name']) ?></a>
-        </article>
+    <div class="pinkclub-fl-product-grid">
+      <?php foreach ($latestItems as $index => $item): ?>
+        <?php render_item_card($item, 200, null, true, $index >= 4); ?>
       <?php endforeach; ?>
     </div>
+    <?php pcf_render_pagination($pg, $homeUrl); ?>
   </section>
-
-  <section class="rail-section home-genre-section">
-    <h2>ジャンル</h2>
-    <?php foreach ($genreRows as $genre): ?>
-      <h3><a href="<?= e(app_url('public/genre.php?id=' . (int)$genre['id'])) ?>"><?= e((string)$genre['name']) ?></a></h3>
-      <div class="rail-row rail-row--200 rail-row--wide-thumb rail-row--bottom-scroll rail-row--bottom-horizontal rail-row--home-taxonomy">
-        <?php foreach ($genre['items'] as $item) { render_item_card($item, 200, ['name' => (string)$genre['name'], 'url' => app_url('public/genre.php?id=' . (int)$genre['id'])], true); } ?>
-      </div>
-    <?php endforeach; ?>
-  </section>
-  <?php if (!empty($seriesSection['items'])): ?>
-  <section class="rail-section">
-    <h2>シリーズ<?= $seriesSection['name'] !== '' ? '：<a href="' . e(app_url('public/series_one.php?id=' . (int)$seriesSection['id'])) . '">' . e($seriesSection['name']) . '</a>' : '' ?></h2>
-    <div class="rail-row rail-row--200 rail-row--wide-thumb rail-row--bottom-scroll rail-row--bottom-horizontal rail-row--home-taxonomy">
-      <?php foreach ($seriesSection['items'] as $item) { render_item_card($item, 200, ['name' => (string)$seriesSection['name'], 'url' => app_url('public/series_one.php?id=' . (int)$seriesSection['id'])], true); } ?>
-    </div>
-  </section>
-  <?php endif; ?>
-
-  <?php if (!empty($makerSection['items'])): ?>
-  <section class="rail-section">
-    <h2>メーカー<?= $makerSection['name'] !== '' ? '：<a href="' . e(app_url('public/maker.php?id=' . (int)$makerSection['id'])) . '">' . e($makerSection['name']) . '</a>' : '' ?></h2>
-    <div class="rail-row rail-row--200 rail-row--wide-thumb rail-row--bottom-scroll rail-row--bottom-horizontal rail-row--home-taxonomy">
-      <?php foreach ($makerSection['items'] as $item) { render_item_card($item, 200, ['name' => (string)$makerSection['name'], 'url' => app_url('public/maker.php?id=' . (int)$makerSection['id'])], true); } ?>
-    </div>
-  </section>
-  <?php endif; ?>
-
-  <?php if (!empty($authorSection['items'])): ?>
-  <section class="rail-section">
-    <h2>作者<?= $authorSection['name'] !== '' ? '：' . e($authorSection['name']) : '' ?></h2>
-    <div class="rail-row rail-row--180">
-      <?php foreach ($authorSection['items'] as $item) { render_item_card($item, 180, ['name' => (string)$authorSection['name'], 'url' => (string)$authorSection['url']]); } ?>
-    </div>
-  </section>
-  <?php endif; ?>
 <?php endif; ?>
 
 

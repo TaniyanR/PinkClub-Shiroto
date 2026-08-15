@@ -291,8 +291,6 @@ $relatedItems = [];
 $actresses = [];
 $genres = [];
 $makers = [];
-$seriesList = [];
-$authors = [];
 $viewport = (string)($_COOKIE['pcf_viewport'] ?? '');
 $clientHintMobile = trim((string)($_SERVER['HTTP_SEC_CH_UA_MOBILE'] ?? ''));
 $userAgent = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
@@ -318,33 +316,6 @@ try {
 } catch (Throwable) {
     $makers = [];
 }
-try {
-    $seriesList = fetch_item_series((string)$item['content_id']);
-} catch (Throwable) {
-    $seriesList = [];
-}
-
-if (db_table_exists('item_authors')) {
-    try {
-        $authorSql = db_column_exists('item_authors', 'item_id')
-            ? 'SELECT DISTINCT authors.id, authors.name
-               FROM items
-               INNER JOIN item_authors ON item_authors.item_id = items.id
-               INNER JOIN authors ON authors.dmm_id = item_authors.dmm_id
-               WHERE items.content_id = ?
-               ORDER BY authors.name'
-            : 'SELECT author_id AS id, author_name AS name
-               FROM item_authors
-               WHERE content_id = ?
-               ORDER BY author_name';
-        $authorStmt = db()->prepare($authorSql);
-        $authorStmt->execute([(string)$item['content_id']]);
-        $authors = $authorStmt->fetchAll() ?: [];
-    } catch (Throwable) {
-        $authors = [];
-    }
-}
-
 $relatedItems = dedupe_items_by_key($relatedItems);
 if ($isMobileViewport) {
     $relatedItems = array_slice($relatedItems, 0, 10);
@@ -352,8 +323,6 @@ if ($isMobileViewport) {
 $actresses = item_unique_rows($actresses, ['id', 'name']);
 $genres = item_unique_rows($genres, ['id', 'name']);
 $makers = item_unique_rows($makers, ['id', 'name']);
-$seriesList = item_unique_rows($seriesList, ['id', 'name']);
-$authors = item_unique_rows($authors, ['id', 'name']);
 
 $actresses = array_values(array_filter($actresses, static function ($row): bool {
     return is_array($row) && !pcf_is_noise_name((string)($row['name'] ?? ''));
@@ -362,12 +331,6 @@ $genres = array_values(array_filter($genres, static function ($row): bool {
     return is_array($row) && !pcf_is_noise_name((string)($row['name'] ?? ''));
 }));
 $makers = array_values(array_filter($makers, static function ($row): bool {
-    return is_array($row) && !pcf_is_noise_name((string)($row['name'] ?? ''));
-}));
-$seriesList = array_values(array_filter($seriesList, static function ($row): bool {
-    return is_array($row) && !pcf_is_noise_name((string)($row['name'] ?? ''));
-}));
-$authors = array_values(array_filter($authors, static function ($row): bool {
     return is_array($row) && !pcf_is_noise_name((string)($row['name'] ?? ''));
 }));
 
@@ -503,58 +466,25 @@ if (trim($breadcrumbTitle) === '') {
 $affiliateUrl = trim((string)($item['affiliate_url'] ?? ''));
 $affiliateOutUrl = $affiliateUrl !== '' ? public_url('out.php') . '?' . http_build_query(['to' => $affiliateUrl]) : '';
 $rawMakerName = item_pick_raw_text((array)($raw['iteminfo'] ?? []), ['maker', 'label']);
-$rawSeriesName = item_pick_raw_text((array)($raw['iteminfo'] ?? []), ['series']);
-$rawDirectorName = item_pick_raw_text((array)($raw['iteminfo'] ?? []), ['director']);
 $deviceText = item_pick_raw_text($raw, ['supportedDevices', 'device', 'devices']);
 $deliveryStartText = item_pick_raw_text($raw, ['date', 'deliveryStartDate', 'delivery_start_date']);
 $labelName = item_pick_raw_text((array)($raw['iteminfo'] ?? []), ['label']);
-$performerText = implode('、', array_values(array_filter(array_map(static fn($v) => trim((string)($v['name'] ?? '')), $actresses), static fn($v) => $v !== '')));
 $genreText = implode('、', array_values(array_filter(array_map(static fn($v) => trim((string)($v['name'] ?? '')), $genres), static fn($v) => $v !== '')));
-$performerLinks = [];
-foreach ($actresses as $actressRow) {
-    $actressId = (int)($actressRow['id'] ?? 0);
-    $actressName = trim((string)($actressRow['name'] ?? ''));
-    if ($actressId <= 0 || $actressName === '') {
-        continue;
-    }
-    $performerLinks[] = '<a href="' . e(public_url('actress.php') . '?id=' . rawurlencode((string)$actressId)) . '">' . e($actressName) . '</a>';
-}
 $genreLinks = [];
 foreach ($genres as $genreRow) {
-    $genreId = (int)($genreRow['id'] ?? 0);
     $genreName = trim((string)($genreRow['name'] ?? ''));
-    if ($genreId <= 0 || $genreName === '') {
+    if ($genreName === '') {
         continue;
     }
-    $genreLinks[] = '<a href="' . e(public_url('genre.php') . '?id=' . rawurlencode((string)$genreId)) . '">' . e($genreName) . '</a>';
-}
-$seriesLinks = [];
-$seriesCanonicalRedirects = series_canonical_maker_redirects();
-foreach ($seriesList as $seriesRow) {
-    $seriesId = (int)($seriesRow['id'] ?? 0);
-    $seriesName = trim((string)($seriesRow['name'] ?? ''));
-    if ($seriesId <= 0 || $seriesName === '' || isset($seriesCanonicalRedirects[$seriesId])) {
-        continue;
-    }
-    $seriesLinks[] = '<a href="' . e(public_url('series_detail.php') . '?id=' . rawurlencode((string)$seriesId)) . '">' . e($seriesName) . '</a>';
+    $genreLinks[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $genreName])) . '">' . e($genreName) . '</a>';
 }
 $makerLinks = [];
 foreach ($makers as $makerRow) {
-    $makerId = (int)($makerRow['id'] ?? 0);
     $makerName = trim((string)($makerRow['name'] ?? ''));
-    if ($makerId <= 0 || $makerName === '') {
+    if ($makerName === '') {
         continue;
     }
-    $makerLinks[] = '<a href="' . e(public_url('maker.php') . '?id=' . rawurlencode((string)$makerId)) . '">' . e($makerName) . '</a>';
-}
-$authorLinks = [];
-foreach ($authors as $authorRow) {
-    $authorId = (int)($authorRow['id'] ?? 0);
-    $authorName = trim((string)($authorRow['name'] ?? ''));
-    if ($authorId <= 0 || $authorName === '') {
-        continue;
-    }
-    $authorLinks[] = '<a href="' . e(public_url('author.php') . '?id=' . rawurlencode((string)$authorId)) . '">' . e($authorName) . '</a>';
+    $makerLinks[] = '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $makerName])) . '">' . e($makerName) . '</a>';
 }
 $tagText = item_pick_raw_text($raw, ['tag', 'tags']);
 if ($tagText === '') {
@@ -659,15 +589,13 @@ require __DIR__ . '/partials/header.php';
 ?>
 <?php pcf_render_breadcrumbs([
     ['label' => 'トップ', 'url' => public_url('index.php')],
-    ['label' => '商品一覧', 'url' => public_url('items.php')],
     ['label' => $breadcrumbTitle],
 ]); ?>
 
 <article>
   <h1 class="pcf-hero__title pcf-item-title"><?= e($breadcrumbTitle) ?></h1>
 
-  <?php if ($sampleMovieUrl !== '' || $sampleImagesSmallLargeMap !== []): ?>
-    <div class="pcf-item-samples" style="display:flex; gap:8px; align-items:flex-start; flex-wrap:nowrap;">
+  <div class="pcf-item-samples" style="display:flex; gap:8px; align-items:flex-start; flex-wrap:nowrap;">
       <?php if ($sampleMovieUrl !== ''): ?>
       <div class="sample-movie-modal__frame-wrap pcf-item-sample-movie" style="width: min(720px, calc(100% - 400px)); max-width: 100%; aspect-ratio: 720 / 480;">
         <iframe class="sample-movie-modal__frame" src="<?= e($sampleMovieUrl) ?>" allow="autoplay; fullscreen" referrerpolicy="no-referrer" scrolling="no" width="720" height="480"></iframe>
@@ -684,8 +612,7 @@ require __DIR__ . '/partials/header.php';
         <?php endforeach; ?>
       </div></div>
       <?php endif; ?>
-    </div>
-  <?php endif; ?>
+  </div>
 
   <?php if ($affiliateUrl !== ''): ?>
     <p><a class="pcf-btn" style="display:block; text-align:center; border:2px solid #9aa0ab; font-weight:700; font-size:18px; padding:12px 14px;" href="<?= e($affiliateOutUrl) ?>" target="_blank" rel="noopener noreferrer sponsored nofollow">購入ボタン</a></p>
@@ -708,12 +635,8 @@ require __DIR__ . '/partials/header.php';
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">配信開始日</th><td style="padding:4px 0; border:0;"><?= e($deliveryStartDisplay !== '' ? $deliveryStartDisplay : '―') ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">商品発売日</th><td style="padding:4px 0; border:0;"><?= e($releaseDateDisplay !== '' ? $releaseDateDisplay : '―') ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">収録時間</th><td style="padding:4px 0; border:0;"><?= e($volumeDisplay !== '' ? $volumeDisplay : '―') ?></td></tr>
-          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">出演者</th><td style="padding:4px 0; border:0;"><?= $performerLinks !== [] ? implode('、', $performerLinks) : e($performerText !== '' ? $performerText : '―') ?></td></tr>
-          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">監督</th><td style="padding:4px 0; border:0;"><?= $rawDirectorName !== '' ? '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $rawDirectorName])) . '">' . e($rawDirectorName) . '</a>' : '―' ?></td></tr>
-          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">作者</th><td style="padding:4px 0; border:0;"><?= $authorLinks !== [] ? implode('、', $authorLinks) : '―' ?></td></tr>
-          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">シリーズ</th><td style="padding:4px 0; border:0;"><?= $seriesLinks !== [] ? implode('、', $seriesLinks) : e($rawSeriesName !== '' ? $rawSeriesName : '―') ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">メーカー</th><td style="padding:4px 0; border:0;"><?= $makerLinks !== [] ? implode('、', $makerLinks) : e($rawMakerName !== '' ? $rawMakerName : '―') ?></td></tr>
-          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">レーベル</th><td style="padding:4px 0; border:0;"><?= $labelName !== '' ? '<a href="' . e(public_url('label.php') . '?' . http_build_query(['name' => $labelName])) . '">' . e($labelName) . '</a>' : '―' ?></td></tr>
+          <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">レーベル</th><td style="padding:4px 0; border:0;"><?= $labelName !== '' ? '<a href="' . e(public_url('search.php') . '?' . http_build_query(['q' => $labelName])) . '">' . e($labelName) . '</a>' : '―' ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">ジャンル</th><td style="padding:4px 0; border:0;"><?= $genreLinks !== [] ? implode('、', $genreLinks) : e($genreText !== '' ? $genreText : '―') ?></td></tr>
           <tr><th style="text-align:left; font-weight:700; padding:4px 8px 4px 0; white-space:nowrap; border:0;">関連タグ</th><td style="padding:4px 0; border:0;"><?= $tagLinks !== [] ? implode(' ', $tagLinks) : e($tagText !== '' ? $tagText : '―') ?></td></tr>
         </tbody>

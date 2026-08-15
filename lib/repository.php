@@ -204,6 +204,12 @@ function items_product_source_where(string $alias = ''): string
     if (items_column_exists('item_source')) {
         $where[] = $outerPrefix . '.item_source = "fanza_product"';
     }
+    if (items_column_exists('service_code')) {
+        $where[] = 'LOWER(COALESCE(' . $outerPrefix . '.service_code, "")) = "digital"';
+    }
+    if (items_column_exists('floor_code')) {
+        $where[] = 'LOWER(COALESCE(' . $outerPrefix . '.floor_code, "")) = "videoc"';
+    }
 
     $where[] = items_front_release_where($outerPrefix);
 
@@ -330,7 +336,7 @@ function fetch_related_makers_by_actress(int $actressId, int $limit = 50): array
                INNER JOIN item_actresses ON item_makers.content_id = item_actresses.content_id
                INNER JOIN items          ON items.content_id = item_makers.content_id
                WHERE item_actresses.actress_id = :id
-                 AND ' . items_front_release_where('items') . '
+                 AND ' . items_product_source_where('items') . '
                ORDER BY makers.name ASC
                LIMIT :limit';
         $stmt = db()->prepare($sql);
@@ -383,21 +389,6 @@ function fetch_series_one(int $seriesId): ?array
     } catch (Throwable) {
         return null;
     }
-}
-
-/**
- * Search Console-confirmed taxonomy duplicates.
- *
- * Keep the source records intact for administration/API sync while routing the
- * public duplicate URL to the already indexed canonical maker page.
- *
- * @return array<int,int> series ID => maker ID
- */
-function series_canonical_maker_redirects(): array
-{
-    return [
-        5214 => 7681,
-    ];
 }
 
 function fetch_genres(int $limit = 50, int $offset = 0, string $order = 'name'): array
@@ -467,10 +458,6 @@ function fetch_series(int $limit = 50, int $offset = 0, string $order = 'name'):
     $orderBy = normalize_order($order, ['name', 'created_at', 'updated_at'], 'name');
     $limit   = normalize_int($limit, 1, 200);
     $offset  = max(0, $offset);
-    $redirectSeriesIds = array_keys(series_canonical_maker_redirects());
-    $redirectWhere = $redirectSeriesIds !== []
-        ? ' AND series_master.id NOT IN (' . implode(',', array_map('intval', $redirectSeriesIds)) . ')'
-        : '';
 
     try {
         $stmt = db()->prepare(
@@ -483,7 +470,6 @@ function fetch_series(int $limit = 50, int $offset = 0, string $order = 'name'):
                WHERE item_series.dmm_id = series_master.dmm_id
                  AND " . items_product_source_where('items') . "
              )
-             {$redirectWhere}
              ORDER BY series_master.{$orderBy} ASC
              LIMIT :limit OFFSET :offset"
         );
@@ -860,12 +846,11 @@ function fetch_item_actresses(string $contentId): array
 
     try {
         $sql = db_column_exists('item_actresses', 'item_id')
-            ? 'SELECT DISTINCT actresses.id, actresses.name, actresses.ruby, actresses.birthday, actresses.prefectures, actresses.image_url
+            ? 'SELECT DISTINCT 0 AS id, item_actresses.actress_name AS name
                FROM items
-               INNER JOIN item_actresses ON items.id         = item_actresses.item_id
-               INNER JOIN actresses      ON actresses.dmm_id = item_actresses.dmm_id
+               INNER JOIN item_actresses ON items.id = item_actresses.item_id
                WHERE items.content_id = :cid
-               ORDER BY actresses.name ASC'
+               ORDER BY item_actresses.actress_name ASC'
             : 'SELECT actresses.*
                FROM actresses
                INNER JOIN item_actresses ON actresses.id = item_actresses.actress_id

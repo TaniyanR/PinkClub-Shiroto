@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 csrf_token();
 $faviconPath = trim(site_setting_get('site.favicon_path', ''));
-$faviconUrl = $faviconPath !== '' ? public_versioned_url($faviconPath) : '';
+$faviconUrl = $faviconPath !== '' ? public_url($faviconPath) : '';
 $faviconType = strtolower((string)pathinfo($faviconPath, PATHINFO_EXTENSION)) === 'png' ? 'image/png' : 'image/x-icon';
 ?>
 <!doctype html>

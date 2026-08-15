@@ -32,7 +32,7 @@ if ($siteName === '') {
     $siteName = trim($safeTextSetting('site.title', ''));
 }
 if ($siteName === '') {
-    $siteName = 'PinkClub Shiroto';
+    $siteName = 'PinkClub-Shiroto';
 }
 
 $tagline = trim($safeTextSetting('site.tagline', ''));
@@ -48,7 +48,18 @@ $titleBaseText = trim($titleText);
 $isHomeTitle = $titleBaseText === '' || $titleBaseText === 'トップ' || $titleBaseText === $siteName;
 $titleText = $isHomeTitle ? ($tagline !== '' ? $siteName . ' - ' . $tagline : $siteName) : $titleBaseText . ' | ' . $siteName;
 $logoUrl = $logoPath !== '' ? public_url($logoPath) : '';
-$faviconUrl = $faviconPath !== '' ? public_versioned_url($faviconPath) : '';
+$faviconUrl = '';
+if ($faviconPath !== '') {
+    $faviconRelativePath = ltrim($faviconPath, '/');
+    if (str_starts_with($faviconRelativePath, 'uploads/site_settings/')) {
+        $faviconRelativePath = 'public/' . $faviconRelativePath;
+    }
+    $faviconUrl = public_url($faviconRelativePath);
+    $faviconFile = __DIR__ . '/../' . ltrim($faviconPath, '/');
+    if (is_file($faviconFile)) {
+        $faviconUrl .= (str_contains($faviconUrl, '?') ? '&' : '?') . 'v=' . rawurlencode((string)filemtime($faviconFile));
+    }
+}
 $faviconExt = strtolower((string)pathinfo($faviconPath, PATHINFO_EXTENSION));
 $faviconType = $faviconExt === 'png' ? 'image/png' : 'image/x-icon';
 $canRenderAd = function_exists('render_ad');
@@ -104,8 +115,6 @@ $relNextHref = isset($relNext) && is_string($relNext) && $relNext !== '' ? $relN
   <?php endif; ?>
   <link rel="stylesheet" href="<?= e(asset_url('css/style.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset_url('css/public-ui.css')) ?>">
-  <script src="<?= e(asset_url('js/recently-viewed.js')) ?>" defer></script>
-  <script src="<?= e(asset_url('js/recommendations.js')) ?>" defer></script>
   <script src="<?= e(asset_url('js/item-detail-fixes.js')) ?>" defer></script>
   <script>
   document.addEventListener('DOMContentLoaded', () => {
@@ -146,7 +155,7 @@ $relNextHref = isset($relNext) && is_string($relNext) && $relNext !== '' ? $relN
         link.classList.add('sample-button--enabled');
         link.href = `<?= e(public_url('vr_affiliate.php')) ?>?id=${encodeURIComponent(itemId)}`;
         link.target = '_blank';
-        link.rel = 'noopener noreferrer sponsored nofollow';
+        link.rel = 'noopener noreferrer sponsored';
         link.textContent = '元サイトで見る';
         link.setAttribute('aria-label', `${title}をFANZAで見る`);
         link.style.display = 'flex';
@@ -237,7 +246,7 @@ $relNextHref = isset($relNext) && is_string($relNext) && $relNext !== '' ? $relN
   <?php require __DIR__ . '/sidebar.php'; ?>
   <main class="content site-main site-main--legacy">
     <?php $scriptName = basename((string)($_SERVER['SCRIPT_NAME'] ?? '')); ?>
-    <?php $autoBreadcrumbSkip = ['item.php', 'genre.php', 'series_detail.php', 'series_one.php', 'author.php', 'maker.php', 'actress.php', 'label.php']; ?>
+    <?php $autoBreadcrumbSkip = ['item.php']; ?>
     <?php if ($scriptName !== 'index.php' && !in_array($scriptName, $autoBreadcrumbSkip, true)): ?>
       <nav class="pcf-breadcrumb" aria-label="パンくず">
         <span class="pcf-breadcrumb__item"><a href="<?= e(public_url('')) ?>">ホーム</a></span>
@@ -245,8 +254,3 @@ $relNextHref = isset($relNext) && is_string($relNext) && $relNext !== '' ? $relN
       </nav>
     <?php endif; ?>
     <div class="site-main__body">
-    <?php if ($scriptName === 'index.php'): ?>
-      <?php require __DIR__ . '/home_mood.php'; ?>
-      <?php require __DIR__ . '/home_recently_viewed.php'; ?>
-      <?php require __DIR__ . '/home_recommendations.php'; ?>
-    <?php endif; ?>

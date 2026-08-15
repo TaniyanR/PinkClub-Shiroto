@@ -3,12 +3,16 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../public/_bootstrap.php';
 auth_require_admin();
-$itemSettings = settings_get();
+$settings = settings_get();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate_or_fail(post('_csrf'));
     try {
-        $count = dmm_sync_service()->syncItems((string) post('site_code', (string)$itemSettings['site']), (string) post('service_code', (string)$itemSettings['service']), (string) post('floor_code', (string)$itemSettings['floor']));
+        $count = dmm_sync_service('items')->syncItems(
+            (string)($settings['site'] ?? 'FANZA'),
+            (string)($settings['service'] ?? 'digital'),
+            (string)($settings['floor'] ?? 'videoc')
+        );
         flash_set('success', "商品同期: {$count}件");
     } catch (Throwable $e) {
         flash_set('error', '商品同期失敗: ' . $e->getMessage());
@@ -24,12 +28,7 @@ require __DIR__ . '/includes/header.php';
   <h1>Items</h1>
   <form method="post">
     <?= csrf_input() ?>
-    <label>service
-      <input name="service_code" value="<?= e((string)$itemSettings['service']) ?>">
-    </label>
-    <label>floor
-      <input name="floor_code" value="<?= e((string)$itemSettings['floor']) ?>">
-    </label>
+    <p>取得先: FANZA / digital / videoc（素人動画）</p>
     <button type="submit">同期</button>
   </form>
 </section>

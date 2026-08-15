@@ -536,6 +536,82 @@ body.admin-page .admin-menu__child .admin-menu__link{padding-left:28px;font-weig
 .rail-row--tall-cards .rail-card .thumb{height:340px;object-fit:cover}
 .rail-row--tall-cards .rail-card .rail-card__noimage{height:340px !important}
 .rail-row--tall-cards.rail-row--wide-thumb .rail-card .thumb{aspect-ratio:auto;height:340px;object-fit:cover}
+
+/* PinkClub-Shiroto: fixed 4 x 8 product grid without horizontal scrolling */
+.pinkclub-fl-product-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:18px;
+  width:100%;
+  overflow:visible;
+  align-items:start;
+}
+.pinkclub-fl-product-grid .rail-card{
+  display:flex;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:none !important;
+  height:auto;
+  padding:12px !important;
+  border:1px solid #d9d9d9 !important;
+  border-radius:6px;
+  background:#fff;
+  box-sizing:border-box;
+}
+.pinkclub-fl-product-grid .rail-card > a:first-child{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:170px;
+  overflow:hidden;
+  background:#fff;
+}
+.pinkclub-fl-product-grid .rail-card .thumb,
+.pinkclub-fl-product-grid .rail-card .rail-card__noimage{
+  display:block;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  height:170px !important;
+  object-fit:contain;
+  object-position:center;
+  background:#fff;
+}
+.pinkclub-fl-product-grid .rail-card__title{
+  min-height:calc(1.5em * 3);
+  max-height:calc(1.5em * 3);
+  line-height:1.5;
+  -webkit-line-clamp:3;
+}
+.pinkclub-fl-product-grid .sample-buttons{margin-top:0}
+@media (max-width:900px){
+  .pinkclub-fl-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .pinkclub-fl-product-grid .rail-card > a:first-child,
+  .pinkclub-fl-product-grid .rail-card .thumb,
+  .pinkclub-fl-product-grid .rail-card .rail-card__noimage{height:150px !important}
+}
+@media (max-width:480px){
+  .pinkclub-fl-product-grid{
+    grid-template-columns:1fr;
+    gap:24px;
+  }
+  .pinkclub-fl-product-grid .rail-card{
+    width:100% !important;
+    max-width:none !important;
+    padding:16px !important;
+  }
+  .pinkclub-fl-product-grid .rail-card > a:first-child{
+    height:auto;
+  }
+  .pinkclub-fl-product-grid .rail-card .thumb{
+    height:auto !important;
+    aspect-ratio:auto;
+  }
+  .pinkclub-fl-product-grid .rail-card .rail-card__noimage{
+    height:210px !important;
+  }
+}
 .rail-card__title{
   width:100%;
   max-width:100%;

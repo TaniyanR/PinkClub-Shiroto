@@ -28,10 +28,9 @@ require __DIR__ . '/partials/header.php';
 
 <section class="pcf-panel" style="margin-top:20px;">
   <h2 class="pcf-section-title">ページを探す</h2>
-  <p>トップページや商品一覧へ移動するか、キーワードで検索してください。</p>
+  <p>トップページへ移動するか、キーワードで検索してください。</p>
   <div class="pcf-actions" style="display:flex;flex-wrap:wrap;gap:10px;margin:16px 0;">
     <a class="pcf-button" href="<?= e(public_url('index.php')) ?>">トップページへ戻る</a>
-    <a class="pcf-button pcf-button--secondary" href="<?= e(public_url('items.php')) ?>">商品一覧へ移動</a>
     <a class="pcf-button pcf-button--secondary" href="<?= e(public_url('search.php')) ?>">検索ページへ移動</a>
     <a class="pcf-button pcf-button--secondary" href="javascript:history.back()">前のページへ戻る</a>
   </div>

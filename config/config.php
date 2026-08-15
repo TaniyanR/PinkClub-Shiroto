@@ -35,8 +35,8 @@ function normalize_configured_base_url(string $value): string
  * Resolve application base path from the current script location.
  *
  * Examples:
- * - /pinkclub-fanza/public/index.php                => /pinkclub-fanza
- * - /pinkclub-fanza/admin/index.php                 => /pinkclub-fanza
+ * - /pinkclub-shiroto/public/index.php                => /pinkclub-shiroto
+ * - /pinkclub-shiroto/admin/index.php                 => /pinkclub-shiroto
  */
 function detect_base_path(string $scriptName): string
 {
@@ -69,7 +69,7 @@ function detect_base_path(string $scriptName): string
 
 /**
  * Some servers expose SCRIPT_NAME as `/index.php` even when the app runs from a
- * subdirectory (e.g. `/pinkclub-fanza/public/`). In that case infer the base
+ * subdirectory (e.g. `/pinkclub-shiroto/public/`). In that case infer the base
  * path from REQUEST_URI.
  */
 function detect_base_path_from_request_uri(string $requestUri): string
@@ -104,7 +104,7 @@ function detect_base_path_from_request_uri(string $requestUri): string
 
 /**
  * If BASE_URL is configured without a path (e.g. https://example.com),
- * and we detected the app is running under a subdirectory (e.g. /pinkclub-fanza),
+ * and we detected the app is running under a subdirectory (e.g. /pinkclub-shiroto),
  * append the detected path. If BASE_URL already contains a non-root path,
  * do not modify it.
  */
@@ -152,7 +152,7 @@ if ($configuredBaseUrl !== '') {
 }
 
 if (!defined('APP_NAME')) {
-    define('APP_NAME', 'PinkClub Shiroto');
+    define('APP_NAME', 'PinkClub-Shiroto');
 }
 if (!defined('BASE_URL')) {
     define('BASE_URL', $baseUrl);
@@ -201,10 +201,6 @@ return [
         'site' => 'FANZA',
         'service' => 'digital',
         'floor' => 'videoc',
-        'master_floor_id' => '43',
-        'catalog_targets' => [
-            ['site' => 'FANZA', 'service' => 'digital', 'floor' => 'videoc', 'label' => '素人動画'],
-        ],
     ],
     'pagination' => [
         'per_page' => 32,

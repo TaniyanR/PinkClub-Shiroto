@@ -110,17 +110,11 @@ function site_article_feed_has_movie(array $item): bool
 
 function site_article_feed_item_url(array $item): string
 {
-    $id = (int)($item['id'] ?? 0);
-    if ($id > 0) {
-        return public_url('item.php?id=' . $id);
-    }
-
     $contentId = trim((string)($item['content_id'] ?? ''));
     if ($contentId !== '') {
         return public_url('item.php?cid=' . rawurlencode($contentId));
     }
-
-    return public_url('');
+    return public_url('item.php?id=' . (int)($item['id'] ?? 0));
 }
 
 function site_article_feed_table_exists(string $table): bool

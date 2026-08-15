@@ -37,16 +37,21 @@ $menuGroups = [
     ]],
 ];
 
-$menuGroups = array_values(array_filter(
-    $menuGroups,
-    static fn(array $group): bool => (string)($group['label'] ?? '') !== '削除依頼'
-        && basename((string)($group['file'] ?? '')) !== 'deletion_requests.php'
-));
-
 $flash = function_exists('flash_get') ? flash_get() : null;
 $titleText = (string)($title ?? APP_NAME);
 $faviconPath = trim(site_setting_get('site.favicon_path', ''));
-$faviconUrl = $faviconPath !== '' ? public_versioned_url($faviconPath) : '';
+$faviconUrl = '';
+if ($faviconPath !== '') {
+    $faviconRelativePath = ltrim($faviconPath, '/');
+    if (str_starts_with($faviconRelativePath, 'uploads/site_settings/')) {
+        $faviconRelativePath = 'public/' . $faviconRelativePath;
+    }
+    $faviconUrl = public_url($faviconRelativePath);
+    $faviconFile = __DIR__ . '/../../public/' . ltrim($faviconPath, '/');
+    if (is_file($faviconFile)) {
+        $faviconUrl .= (str_contains($faviconUrl, '?') ? '&' : '?') . 'v=' . rawurlencode((string)filemtime($faviconFile));
+    }
+}
 $faviconType = strtolower((string)pathinfo($faviconPath, PATHINFO_EXTENSION)) === 'png' ? 'image/png' : 'image/x-icon';
 ?>
 <!doctype html>
@@ -66,7 +71,7 @@ $faviconType = strtolower((string)pathinfo($faviconPath, PATHINFO_EXTENSION)) ==
 <input class="admin-menu-toggle" type="checkbox" id="admin-menu-toggle" hidden>
 <header class="admin-topbar">
   <label class="admin-menu-toggle__button" for="admin-menu-toggle" aria-label="管理メニューを開閉">☰</label>
-  <div class="admin-topbar__brand"><a href="<?= e(admin_url('index.php')) ?>">PinkClub Shiroto 管理</a></div>
+  <div class="admin-topbar__brand"><a href="<?= e(admin_url('index.php')) ?>">PinkClub-Shiroto 管理</a></div>
   <div class="admin-topbar__right">
     <a href="<?= e(public_url('')) ?>" target="_blank" rel="noopener noreferrer">フロント表示</a>
     <span class="admin-topbar__separator" aria-hidden="true"> | </span>

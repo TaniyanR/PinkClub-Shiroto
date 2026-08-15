@@ -53,7 +53,7 @@ return [
         'affiliate_id' => '',
         'site' => 'FANZA',
         'service' => 'digital',
-        'floor' => 'videoa',
+        'floor' => 'videoc',
     ],
 
     'admin' => [

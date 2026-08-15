@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 
-header('X-Robots-Tag: noindex, nofollow', true);
-
 $to = trim((string)($_GET['to'] ?? ''));
 $ref = trim((string)($_GET['ref'] ?? ''));
 $path = (string)($_SERVER['REQUEST_URI'] ?? '/out.php');
