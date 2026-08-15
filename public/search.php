@@ -75,7 +75,7 @@ function search_relation_checks(string $term, int $termIndex, array &$params): a
     return $checks;
 }
 
-function search_exact_relation_check(string $type, string $param): string
+function search_exact_relation_check(string $type, string $param, string $titleParam = ''): string
 {
     $relations = [
         'actress' => ['table' => 'item_actresses', 'column' => 'actress_name'],
@@ -111,8 +111,8 @@ function search_exact_relation_check(string $type, string $param): string
 
     // The videoc floor often supplies the performer label as the item title
     // while iteminfo.actress is empty. Directory links must still find it.
-    if ($type === 'actress') {
-        return '(' . $relationCheck . ' OR items.title = ' . $param . ')';
+    if ($type === 'actress' && $titleParam !== '') {
+        return '(' . $relationCheck . ' OR items.title = ' . $titleParam . ')';
     }
 
     return $relationCheck;
@@ -346,10 +346,6 @@ function search_item_is_displayable(array $item, ?array $rssLookup = null): bool
         return false;
     }
 
-    if (trim(pcf_item_image($item)) === '') {
-        return false;
-    }
-
     return true;
 }
 
@@ -367,9 +363,16 @@ function search_fetch_items(string $query, int $limit, int $offset, string $exac
 
     $params = [];
     $exactParam = ':q_exact';
-    $exactCheck = $exactType !== '' ? search_exact_relation_check($exactType, $exactParam) : '';
+    $exactTitleParam = ':q_exact_title';
+    $exactCheck = $exactType !== ''
+        ? search_exact_relation_check($exactType, $exactParam, $exactTitleParam)
+        : '';
     if ($exactCheck !== '') {
         $params[$exactParam] = $query;
+        if ($exactType === 'actress') {
+            // Native PDO prepared statements cannot reuse one named parameter.
+            $params[$exactTitleParam] = $query;
+        }
         $whereSql = $exactCheck;
     } else {
         $termWhere = [];
@@ -478,6 +481,7 @@ if ($searchHasNext) {
 }
 require __DIR__ . '/partials/header.php';
 ?>
+<?php pcf_render_sample_movie_modal(); ?>
 <?php pcf_render_hero('検索結果', $searchQuery !== '' ? '「' . $searchQuery . '」の商品検索結果です。' : 'キーワードを入力して商品を検索できます。'); ?>
 
 <?php if ($searchQuery === ''): ?>

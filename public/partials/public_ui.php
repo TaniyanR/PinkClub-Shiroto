@@ -110,6 +110,18 @@ if (!function_exists('pcf_is_self_hosted_fanza_image_url')) {
     }
 }
 
+if (!function_exists('pcf_is_placeholder_image_url')) {
+    function pcf_is_placeholder_image_url(string $url): bool
+    {
+        $value = mb_strtolower(rawurldecode(trim($url)), 'UTF-8');
+        if ($value === '') {
+            return false;
+        }
+
+        return (bool)preg_match('#(?:now[\s_-]*printing|no[\s_-]*image|noimage|image[\s_-]*none|coming[\s_-]*soon)#iu', $value);
+    }
+}
+
 if (!function_exists('pcf_first_image_from_mixed')) {
     function pcf_first_image_from_mixed(mixed $value): string
     {
@@ -205,47 +217,87 @@ if (!function_exists('pcf_first_text_by_keys_from_mixed')) {
     }
 }
 
-if (!function_exists('pcf_item_image')) {
-    function pcf_item_image(array $item): string
+if (!function_exists('pcf_item_image_candidates')) {
+    function pcf_item_image_candidates(array $item): array
     {
-        $candidates = [
-            (string)($item['full_package_url'] ?? ''),
-            (string)($item['main_image_url'] ?? ''),
-            (string)($item['image_url'] ?? ''),
-            (string)($item['image_large'] ?? ''),
-            (string)($item['image_small'] ?? ''),
-            (string)($item['package_image_large'] ?? ''),
-            (string)($item['package_image_small'] ?? ''),
-        ];
+        $candidates = [];
 
         $rawJson = (string)($item['raw_json'] ?? '');
         if ($rawJson !== '') {
             $raw = pcf_maybe_decode_json_value($rawJson);
             if (is_array($raw)) {
-                $candidates[] = (string)($raw['packageImage']['large'] ?? '');
-                $candidates[] = (string)($raw['packageImage']['small'] ?? '');
-                $candidates[] = (string)($raw['imageURL']['large'] ?? '');
-                $candidates[] = (string)($raw['imageURL']['small'] ?? '');
-                $candidates[] = pcf_first_image_from_mixed($raw['imageURL']['list'] ?? null);
-                $candidates[] = pcf_first_image_from_mixed($raw);
+                // videoc products frequently have NOW PRINTING in imageURL but
+                // a usable package or sample image elsewhere in the response.
+                $packageImage = pcf_maybe_decode_json_value($raw['packageImage'] ?? null);
+                if (is_array($packageImage)) {
+                    $candidates[] = pcf_first_image_from_mixed($packageImage['large'] ?? null);
+                    $candidates[] = pcf_first_image_from_mixed($packageImage['small'] ?? null);
+                    $candidates[] = pcf_first_image_from_mixed($packageImage['list'] ?? null);
+                } else {
+                    $candidates[] = pcf_first_image_from_mixed($packageImage);
+                }
+                foreach (pcf_pick_sample_image_urls_from_raw($raw) as $sampleImage) {
+                    $candidates[] = (string)$sampleImage;
+                }
+                $candidates[] = pcf_first_image_from_mixed($raw['sampleImageURL'] ?? null);
+                $imageUrl = pcf_maybe_decode_json_value($raw['imageURL'] ?? null);
+                if (is_array($imageUrl)) {
+                    $candidates[] = pcf_first_image_from_mixed($imageUrl['large'] ?? null);
+                    $candidates[] = pcf_first_image_from_mixed($imageUrl['small'] ?? null);
+                    $candidates[] = pcf_first_image_from_mixed($imageUrl['list'] ?? null);
+                } else {
+                    $candidates[] = pcf_first_image_from_mixed($imageUrl);
+                }
             }
         }
 
-        foreach ($candidates as $candidate) {
-            $value = trim($candidate);
-            if ($value !== '' && !pcf_is_self_hosted_fanza_image_url($value)) {
-                return $value;
-            }
-        }
+        $candidates = array_merge($candidates, [
+            (string)($item['full_package_url'] ?? ''),
+            (string)($item['main_image_url'] ?? ''),
+            (string)($item['image_url'] ?? ''),
+            (string)($item['package_image_large'] ?? ''),
+            (string)($item['package_image_small'] ?? ''),
+            (string)($item['image_large'] ?? ''),
+            (string)($item['image_small'] ?? ''),
+        ]);
 
         foreach (pcf_parse_image_urls((string)($item['image_list'] ?? '')) as $image) {
-            $value = trim((string)$image);
-            if ($value !== '' && !pcf_is_self_hosted_fanza_image_url($value)) {
-                return $value;
-            }
+            $candidates[] = (string)$image;
         }
 
-        return '';
+        if (isset($raw) && is_array($raw)) {
+            $candidates[] = pcf_first_image_from_mixed($raw);
+        }
+
+        $result = [];
+        $seen = [];
+        foreach ($candidates as $candidate) {
+            $value = trim($candidate);
+            if (
+                $value === ''
+                || !pcf_looks_like_image_url($value)
+                || pcf_is_self_hosted_fanza_image_url($value)
+                || pcf_is_placeholder_image_url($value)
+            ) {
+                continue;
+            }
+            $key = mb_strtolower($value, 'UTF-8');
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $result[] = $value;
+        }
+
+        return $result;
+    }
+}
+
+if (!function_exists('pcf_item_image')) {
+    function pcf_item_image(array $item): string
+    {
+        $candidates = pcf_item_image_candidates($item);
+        return (string)($candidates[0] ?? '');
     }
 }
 
@@ -398,6 +450,11 @@ if (!function_exists('pcf_pick_sample_image_urls_from_raw')) {
 if (!function_exists('pcf_render_sample_movie_modal')) {
     function pcf_render_sample_movie_modal(): void
     {
+        static $rendered = false;
+        if ($rendered) {
+            return;
+        }
+        $rendered = true;
         ?>
 <div id="sample-movie-modal" class="sample-movie-modal" aria-hidden="true">
   <div class="sample-movie-modal__overlay" data-movie-close="1"></div>
@@ -575,15 +632,12 @@ if (!function_exists('pcf_render_item_card')) {
         }
         $itemId = (int)($item['id'] ?? 0);
         $itemUrl = $itemId > 0 ? public_url('item.php?id=' . $itemId) : public_url('item.php?cid=' . rawurlencode($contentId));
-        $imageUrl = trim(pcf_item_image($item));
-        if ($preferFullPackageImage) {
-            foreach ([(string)($item['image_large'] ?? ''), pcf_first_image_from_mixed($item['image_list'] ?? ''), (string)($item['image_small'] ?? '')] as $imageCandidate) {
-                $fullPackageImage = trim($imageCandidate);
-                if ($fullPackageImage !== '' && !pcf_is_self_hosted_fanza_image_url($fullPackageImage)) {
-                    $imageUrl = $fullPackageImage;
-                    break;
-                }
-            }
+        $imageCandidates = pcf_item_image_candidates($item);
+        $imageUrl = (string)($imageCandidates[0] ?? '');
+        $fallbackImages = array_slice($imageCandidates, 1);
+        $fallbackImagesJson = json_encode($fallbackImages, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($fallbackImagesJson)) {
+            $fallbackImagesJson = '[]';
         }
         $sampleMovieUrl = '';
         $raw = [];
@@ -609,7 +663,7 @@ if (!function_exists('pcf_render_item_card')) {
         echo '<article class="pcf-dm-card">';
         echo '<a class="pcf-dm-card__image-link" href="' . e($itemUrl) . '">';
         if ($imageUrl !== '') {
-            echo '<img class="pcf-dm-card__image" src="' . e($imageUrl) . '" alt="' . e($title) . '" loading="lazy">';
+            echo '<img class="pcf-dm-card__image" src="' . e($imageUrl) . '" alt="' . e($title) . '" loading="lazy" data-fallback-images="' . e($fallbackImagesJson) . '" onerror="const images=JSON.parse(this.dataset.fallbackImages||\'[]\');const next=images.shift();this.dataset.fallbackImages=JSON.stringify(images);if(next){this.src=next;}else{this.remove();}">';
         } else {
             echo '<div class="pcf-dm-card__no-image">No Image</div>';
         }

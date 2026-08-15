@@ -306,11 +306,16 @@ function render_item_card(array $item, int $width = 180, ?array $taxonomy = null
     // The amateur-video floor may keep its usable package image only in raw_json.
     // Use the same resolver as the detail page so cards do not fall back to the
     // provider's NOW PRINTING image while the detail page has a real image.
-    $thumbUrl = trim(pcf_item_image($item));
+    $imageCandidates = pcf_item_image_candidates($item);
+    $thumbUrl = (string)($imageCandidates[0] ?? '');
+    $fallbackImagesJson = json_encode(array_slice($imageCandidates, 1), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($fallbackImagesJson)) {
+        $fallbackImagesJson = '[]';
+    }
     ?>
     <article class="card rail-card rail-card--<?= (int)$width ?>" style="width:<?= (int)$width ?>px;min-width:<?= (int)$width ?>px;max-width:<?= (int)$width ?>px;">
       <?php if ($thumbUrl !== ''): ?>
-        <a href="<?= e($itemUrl) ?>"><img class="thumb" src="<?= e($thumbUrl) ?>" alt="<?= e($title) ?>"<?= $lazyLoad ? ' loading="lazy"' : '' ?> decoding="async" style="width:<?= (int)$width ?>px;max-width:<?= (int)$width ?>px;"></a>
+        <a href="<?= e($itemUrl) ?>"><img class="thumb" src="<?= e($thumbUrl) ?>" alt="<?= e($title) ?>"<?= $lazyLoad ? ' loading="lazy"' : '' ?> decoding="async" data-fallback-images="<?= e($fallbackImagesJson) ?>" onerror="const images=JSON.parse(this.dataset.fallbackImages||'[]');const next=images.shift();this.dataset.fallbackImages=JSON.stringify(images);if(next){this.src=next;}else{this.remove();}" style="width:<?= (int)$width ?>px;max-width:<?= (int)$width ?>px;"></a>
       <?php else: ?>
         <div class="rail-card__noimage" style="width:<?= (int)$width ?>px;height:<?= (int)$width ?>px;">画像なし</div>
       <?php endif; ?>
