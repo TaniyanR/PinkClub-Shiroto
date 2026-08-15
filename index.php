@@ -297,43 +297,16 @@ function item_sample_state(array $item): array
     return ['movie_url' => $firstMovieUrl, 'movie_urls' => $movieUrls, 'has_images' => $hasImageSample];
 }
 
-function pick_full_package_image(array $item): string
-{
-    foreach (['image_large', 'image_list', 'image_small'] as $key) {
-        if ($key === 'image_list') {
-            foreach (parse_index_image_urls((string)($item['image_list'] ?? '')) as $image) {
-                $candidate = trim((string)$image);
-                if ($candidate !== '') {
-                    return $candidate;
-                }
-            }
-            continue;
-        }
-        $candidate = trim((string)($item[$key] ?? ''));
-        if ($candidate !== '') {
-            return $candidate;
-        }
-    }
-
-    return '';
-}
-
 function render_item_card(array $item, int $width = 180, ?array $taxonomy = null, bool $preferFullPackageImage = false, bool $lazyLoad = true): void
 {
     $itemUrl = app_url('public/item.php?id=' . (int)$item['id']);
     $title = (string)($item['title'] ?? '');
     $sample = item_sample_state($item);
     $movieClass = $sample['movie_url'] !== '' ? 'sample-button sample-button--enabled' : 'sample-button sample-button--disabled';
-    $thumbUrl = trim((string)($item['image_small'] ?? ''));
-    if ($preferFullPackageImage) {
-        $fullPackageImage = pick_full_package_image($item);
-        if ($fullPackageImage !== '') {
-            $thumbUrl = $fullPackageImage;
-        }
-    }
-    if ($thumbUrl === '') {
-        $thumbUrl = trim((string)($item['image_large'] ?? ''));
-    }
+    // The amateur-video floor may keep its usable package image only in raw_json.
+    // Use the same resolver as the detail page so cards do not fall back to the
+    // provider's NOW PRINTING image while the detail page has a real image.
+    $thumbUrl = trim(pcf_item_image($item));
     ?>
     <article class="card rail-card rail-card--<?= (int)$width ?>" style="width:<?= (int)$width ?>px;min-width:<?= (int)$width ?>px;max-width:<?= (int)$width ?>px;">
       <?php if ($thumbUrl !== ''): ?>
@@ -426,7 +399,7 @@ require __DIR__ . '/public/partials/header.php';
 <?php elseif ($latestItems === []): ?>
   <div class="card">
     <h2>表示できる商品データがありません</h2>
-    <p><a class="button button--primary" href="<?= e(public_url('items.php')) ?>">商品一覧を見る</a></p>
+    <p>ページを再読み込みするか、キーワード検索をお試しください。</p>
   </div>
 <?php else: ?>
   <section class="rail-section pinkclub-fl-product-section">

@@ -105,9 +105,17 @@ function search_exact_relation_check(string $type, string $param): string
         return '';
     }
 
-    return 'EXISTS (SELECT 1 FROM `' . $table . '` r'
+    $relationCheck = 'EXISTS (SELECT 1 FROM `' . $table . '` r'
         . ' WHERE (' . implode(' OR ', $joins) . ')'
         . ' AND r.`' . $column . '` = ' . $param . ')';
+
+    // The videoc floor often supplies the performer label as the item title
+    // while iteminfo.actress is empty. Directory links must still find it.
+    if ($type === 'actress') {
+        return '(' . $relationCheck . ' OR items.title = ' . $param . ')';
+    }
+
+    return $relationCheck;
 }
 
 function search_item_raw(array $item): array

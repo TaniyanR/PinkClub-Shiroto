@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 function light_directory_groups(string $type, string $table, string $column, int $ttlSeconds = 600): array
 {
-    $allowed = ['actress', 'genre', 'maker', 'label', 'series'];
+    $allowed = ['actress', 'genre', 'maker', 'label'];
     if (!in_array($type, $allowed, true)) {
         return [];
     }
 
     $cacheDirectory = dirname(__DIR__) . '/storage/cache/light-directory';
-    $cacheFile = $cacheDirectory . '/' . $type . '.json';
+    $cacheFile = $cacheDirectory . '/v2-' . $type . '.json';
     if (is_file($cacheFile) && (time() - (int)filemtime($cacheFile)) < $ttlSeconds) {
         $cached = json_decode((string)@file_get_contents($cacheFile), true);
         if (is_array($cached)) {
@@ -37,11 +37,43 @@ function light_directory_groups(string $type, string $table, string $column, int
         if (!db_table_exists($table)) {
             return $groups;
         }
-        $stmt = db()->query(
-            'SELECT `' . $column . '` AS name FROM `' . $table . '`
-             WHERE `' . $column . '` IS NOT NULL AND `' . $column . '` <> ""
-             GROUP BY `' . $column . '` ORDER BY `' . $column . '` ASC LIMIT 20000'
-        );
+        $itemWhere = [];
+        if (db_column_exists('items', 'item_source')) {
+            $itemWhere[] = 'i.item_source = "fanza_product"';
+        }
+        if (db_column_exists('items', 'service_code')) {
+            $itemWhere[] = 'LOWER(COALESCE(i.service_code, "")) = "digital"';
+        }
+        if (db_column_exists('items', 'floor_code')) {
+            $itemWhere[] = 'LOWER(COALESCE(i.floor_code, "")) = "videoc"';
+        }
+        if (db_column_exists('items', 'release_date')) {
+            $itemWhere[] = '(i.release_date IS NULL OR i.release_date = "" OR i.release_date <= NOW())';
+        }
+        $itemWhereSql = $itemWhere !== [] ? implode(' AND ', $itemWhere) : '1=1';
+
+        if (db_column_exists($table, 'item_id')) {
+            $nameSelect = 'SELECT r.`' . $column . '` AS name FROM `' . $table . '` r'
+                . ' INNER JOIN items i ON i.id = r.item_id'
+                . ' WHERE r.`' . $column . '` IS NOT NULL AND r.`' . $column . '` <> "" AND ' . $itemWhereSql;
+        } else {
+            $nameSelect = 'SELECT `' . $column . '` AS name FROM `' . $table . '`'
+                . ' WHERE `' . $column . '` IS NOT NULL AND `' . $column . '` <> ""';
+        }
+
+        if ($type === 'actress') {
+            // Existing videoc rows may predate title-to-performer normalization.
+            // Add only titles of items which have no actress relation.
+            $nameSelect .= ' UNION ALL SELECT i.title AS name FROM items i'
+                . ' WHERE ' . $itemWhereSql
+                . ' AND TRIM(COALESCE(i.title, "")) <> ""'
+                . ' AND CHAR_LENGTH(i.title) <= 80'
+                . (db_column_exists($table, 'item_id')
+                    ? ' AND NOT EXISTS (SELECT 1 FROM `' . $table . '` fallback_relation WHERE fallback_relation.item_id = i.id)'
+                    : '');
+        }
+
+        $stmt = db()->query('SELECT name FROM (' . $nameSelect . ') directory_names GROUP BY name ORDER BY name ASC LIMIT 20000');
         $rows = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
 
         foreach ($rows as $row) {

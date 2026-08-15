@@ -11,10 +11,13 @@ $directoryTypes = [
     'genre' => ['title' => 'ジャンル一覧', 'table' => 'item_genres', 'column' => 'genre_name'],
     'maker' => ['title' => 'メーカー一覧', 'table' => 'item_makers', 'column' => 'maker_name'],
     'label' => ['title' => 'レーベル一覧', 'table' => 'item_labels', 'column' => 'label_name'],
-    'series' => ['title' => 'シリーズ一覧', 'table' => 'item_series', 'column' => 'series_name'],
 ];
 
 $type = trim((string)($_GET['type'] ?? 'actress'));
+if ($type === 'series') {
+    header('Location: ' . public_url(''), true, 301);
+    exit;
+}
 if (!isset($directoryTypes[$type])) {
     http_response_code(404);
     $type = 'actress';

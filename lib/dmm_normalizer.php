@@ -168,12 +168,20 @@ class DmmNormalizer
             $deliveryList = self::toList($delivery);
             $priceMin = $deliveryList[0]['price'] ?? null;
             $listPrice = $deliveryList[0]['list_price'] ?? null;
+            $title = self::extractTitle($row);
+            $actresses = self::normalizeNamedList($info['actress'] ?? []);
+            $floorCode = strtolower(trim((string)($row['floor_code'] ?? '')));
+            if ($actresses === [] && $floorCode === 'videoc' && !self::isInvalidName($title) && mb_strlen($title, 'UTF-8') <= 80) {
+                // On the amateur-video floor the displayed performer label is
+                // commonly returned as the item title instead of actress data.
+                $actresses = [['id' => '', 'name' => $title, 'ruby' => null]];
+            }
 
             $normalized[] = [
                 'raw' => $row,
                 'content_id' => $row['content_id'] ?? null,
                 'product_id' => $row['product_id'] ?? null,
-                'title' => self::extractTitle($row),
+                'title' => $title,
                 'service_code' => $row['service_code'] ?? '',
                 'service_name' => $row['service_name'] ?? '',
                 'floor_code' => $row['floor_code'] ?? '',
@@ -196,7 +204,7 @@ class DmmNormalizer
                 'price_min_text' => $priceMin,
                 'list_price_text' => $listPrice,
                 'release_date' => !empty($row['date']) ? $row['date'] : null,
-                'actresses' => self::normalizeNamedList($info['actress'] ?? []),
+                'actresses' => $actresses,
                 'genres' => self::normalizeNamedList($info['genre'] ?? []),
                 'makers' => self::normalizeNamedList($info['maker'] ?? []),
                 'series' => self::normalizeNamedList($info['series'] ?? []),
