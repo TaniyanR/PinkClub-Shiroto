@@ -481,6 +481,7 @@ if ($searchHasNext) {
 }
 require __DIR__ . '/partials/header.php';
 ?>
+<?php pcf_render_sample_movie_modal(); ?>
 <?php pcf_render_hero('検索結果', $searchQuery !== '' ? '「' . $searchQuery . '」の商品検索結果です。' : 'キーワードを入力して商品を検索できます。'); ?>
 
 <?php if ($searchQuery === ''): ?>
@@ -504,5 +505,4 @@ require __DIR__ . '/partials/header.php';
   <?php pcf_render_empty('検索条件に一致する商品がありません。'); ?>
 <?php endif; ?>
 
-<?php pcf_render_sample_movie_modal(); ?>
 <?php require __DIR__ . '/partials/footer.php'; ?>
