@@ -457,7 +457,8 @@ if (!function_exists('pcf_render_sample_movie_modal')) {
     <button type="button" class="sample-movie-modal__close" data-movie-close="1" aria-label="閉じる">×</button>
     <div id="sample-movie-title" class="sample-movie-modal__title">サンプル動画</div>
     <div class="sample-movie-modal__frame-wrap">
-      <iframe id="sample-movie-frame" class="sample-movie-modal__frame" src="about:blank" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe>
+      <video id="sample-movie-video" class="sample-movie-modal__frame" controls playsinline preload="metadata" hidden></video>
+      <iframe id="sample-movie-frame" class="sample-movie-modal__frame" src="about:blank" allow="autoplay; fullscreen"></iframe>
     </div>
   </div>
 </div>
@@ -465,15 +466,32 @@ if (!function_exists('pcf_render_sample_movie_modal')) {
 (() => {
   const modal = document.getElementById('sample-movie-modal');
   const frame = document.getElementById('sample-movie-frame');
+  const video = document.getElementById('sample-movie-video');
   const titleNode = document.getElementById('sample-movie-title');
-  if (!modal || !frame || !titleNode) return;
+  if (!modal || !frame || !video || !titleNode) return;
+
+  const isDirectMovie = (url) => /\.(?:mp4|webm|ogv|ogg)(?:$|[?#])/i.test(url);
 
   const openMovie = (url, title) => {
     if (!url) return;
     const normalizedTitle = String(title || '').trim();
     titleNode.textContent = normalizedTitle !== '' ? normalizedTitle : 'サンプル動画';
     modal.style.setProperty('--movie-modal-width', '900px');
-    frame.src = url;
+    if (isDirectMovie(url)) {
+      frame.hidden = true;
+      frame.src = 'about:blank';
+      video.hidden = false;
+      video.src = url;
+      video.load();
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      video.hidden = true;
+      frame.hidden = false;
+      frame.src = url;
+    }
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
   };
@@ -481,7 +499,12 @@ if (!function_exists('pcf_render_sample_movie_modal')) {
   const closeMovie = () => {
     modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden', 'true');
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    video.hidden = true;
     frame.src = 'about:blank';
+    frame.hidden = false;
     modal.style.removeProperty('--movie-modal-width');
     titleNode.textContent = 'サンプル動画';
   };
@@ -669,7 +692,7 @@ if (!function_exists('pcf_render_item_card')) {
         $releaseDateLabel = $releaseDateRaw !== '' ? '発売日：' . e(format_date($releaseDateRaw)) : '発売日';
         echo '<span style="display:block;width:100%;padding:12px 10px;text-align:center;color:#000;background:transparent;border:1px solid #000;border-radius:4px;font-size:14px;font-weight:700;box-sizing:border-box;">' . $releaseDateLabel . '</span>';
         if ($sampleMovieUrl !== '') {
-            echo '<button type="button" class="pcf-dm-card__button sample-movie-trigger" data-movie-url="' . e($sampleMovieUrl) . '" data-movie-title="' . e($title) . '">サンプル動画</button>';
+            echo '<a class="pcf-dm-card__button sample-movie-trigger" href="' . e($sampleMovieUrl) . '" target="_blank" rel="noopener noreferrer nofollow" data-movie-url="' . e($sampleMovieUrl) . '" data-movie-title="' . e($title) . '">サンプル動画</a>';
         } else {
             echo '<span class="pcf-dm-card__button is-disabled">サンプル動画</span>';
         }
