@@ -241,6 +241,12 @@ function index_items_product_source_where(PDO $pdo): string
     if (index_column_exists($pdo, 'items', 'item_source')) {
         $parts[] = 'items.item_source = "fanza_product"';
     }
+    if (index_column_exists($pdo, 'items', 'service_code')) {
+        $parts[] = 'LOWER(COALESCE(items.service_code, "")) = "digital"';
+    }
+    if (index_column_exists($pdo, 'items', 'floor_code')) {
+        $parts[] = 'LOWER(COALESCE(items.floor_code, "")) = "videoc"';
+    }
     $parts[] = index_items_front_release_where();
     if (index_table_exists($pdo, 'rss_items') && index_table_exists($pdo, 'rss_sources') && index_column_exists($pdo, 'rss_sources', 'source_type')) {
         $parts[] = 'NOT EXISTS (SELECT 1 FROM rss_items ri INNER JOIN rss_sources rs ON rs.id = ri.source_id WHERE rs.source_type = "partner_link" AND (ri.title = items.title OR ri.url = items.url OR ri.url = items.affiliate_url))';

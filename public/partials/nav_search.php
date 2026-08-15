@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_helpers.php';
 require_once __DIR__ . '/../../lib/db.php';
+require_once __DIR__ . '/../../lib/repository.php';
 require_once __DIR__ . '/../../lib/contact_page_slug.php';
 
 $path = (string)parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
@@ -24,9 +25,8 @@ $mobileInfoItems = [
     ['href' => public_url('page.php?slug=que'), 'label' => 'お問い合わせ'],
 ];
 $sitePostCount = null;
-$sitePostCount = null;
 try {
-    $sitePostCount = (int)db()->query('SELECT COUNT(*) FROM items')->fetchColumn();
+    $sitePostCount = (int)db()->query('SELECT COUNT(*) FROM items WHERE ' . items_product_source_where())->fetchColumn();
 } catch (Throwable) {
 }
 

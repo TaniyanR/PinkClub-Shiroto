@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../lib/db.php';
+require_once __DIR__ . '/../../lib/repository.php';
 require_once __DIR__ . '/../../lib/app_features.php';
 require_once __DIR__ . '/../../lib/contact_page_slug.php';
 require_once __DIR__ . '/_helpers.php';
@@ -22,7 +23,7 @@ $defaultFixedPages = [
 ];
 
 try {
-    $sitePostCount = (int)db()->query('SELECT COUNT(*) FROM items')->fetchColumn();
+    $sitePostCount = (int)db()->query('SELECT COUNT(*) FROM items WHERE ' . items_product_source_where())->fetchColumn();
 } catch (Throwable) {
     $sitePostCount = null;
 }

@@ -51,7 +51,7 @@ function settings_get(): array
     return [
         'api_id' => $dbApiId !== '' ? $dbApiId : ($envApiId !== '' ? $envApiId : ''),
         'affiliate_id' => $dbAffiliateId !== '' ? $dbAffiliateId : ($envAffiliateId !== '' ? $envAffiliateId : ''),
-        'site' => settings_normalize_site((string)site_setting_get('fanza_site', (string)($defaults['site'] ?? 'FANZA'))),
+        'site' => settings_normalize_site((string)($defaults['site'] ?? 'FANZA')),
         // This edition is intentionally restricted to FANZA amateur videos.
         // Do not allow legacy database settings to redirect imports to another floor.
         'service' => strtolower(settings_normalize_token((string)($defaults['service'] ?? 'digital'), 'digital')),
