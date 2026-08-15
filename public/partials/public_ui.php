@@ -661,6 +661,15 @@ if (!function_exists('pcf_render_item_card')) {
         }
         $hasSampleImages = pcf_pick_sample_image_urls_from_raw($raw) !== [];
         $sampleImagesUrl = $contentId !== '' ? public_url('sample_images.php?content_id=' . rawurlencode($contentId)) : '';
+        if (!$hasSampleImages) {
+            foreach (pcf_parse_image_urls((string)($item['image_list'] ?? '')) as $image) {
+                $sampleImageCandidate = trim((string)$image);
+                if ($sampleImageCandidate !== '' && !pcf_is_self_hosted_fanza_image_url($sampleImageCandidate)) {
+                    $hasSampleImages = true;
+                    break;
+                }
+            }
+        }
 
         echo '<article class="pcf-dm-card">';
         echo '<a class="pcf-dm-card__image-link" href="' . e($itemUrl) . '">';
@@ -681,7 +690,7 @@ if (!function_exists('pcf_render_item_card')) {
             echo '<span class="pcf-dm-card__button is-disabled">サンプル動画</span>';
         }
         if ($hasSampleImages && $sampleImagesUrl !== '') {
-            echo '<button type="button" class="pcf-dm-card__button" data-sample-images-url="' . e($sampleImagesUrl) . '" onclick="if(this.dataset.sampleImagesUrl){window.open(this.dataset.sampleImagesUrl, \'_blank\', \'noopener\');}">サンプル画像</button>';
+            echo '<button type="button" class="pcf-dm-card__button" onclick="window.open(\'' . e($sampleImagesUrl) . '\',\'_blank\',\'noopener,noreferrer,width=760,height=540\');">サンプル画像</button>';
         } else {
             echo '<span class="pcf-dm-card__button is-disabled">サンプル画像</span>';
         }
