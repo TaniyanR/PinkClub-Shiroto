@@ -346,10 +346,6 @@ function search_item_is_displayable(array $item, ?array $rssLookup = null): bool
         return false;
     }
 
-    if (trim(pcf_item_image($item)) === '') {
-        return false;
-    }
-
     return true;
 }
 
